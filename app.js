@@ -16,6 +16,9 @@ const globalState = {
 const apiManager = new APIManager();
 const apiKeyStorage = new APIKeyStorage();
 
+// Add to global state section - Style Engine
+const styleEngine = new StyleEngine();
+
 // Rarity state object to store trait weights organized by category
 const rarityState = {
     background: [],
@@ -40,11 +43,412 @@ const configCache = {
     body: { numTraits: 20, complexity: 5, colorSeed: '' },
     eyes: { numTraits: 20, complexity: 5, colorSeed: '' },
     mouth: { numTraits: 20, complexity: 5, colorSeed: '' },
-    hat: { numTraits: 20, complexity: 5, colorSeed: '' }
+    hat: { numTraits: 20, complexity: 5, colorSeed: '' },
+    
+    // Global style configuration
+    globalStyle: {
+        masterPrompt: '',
+        masterIntensity: 1.0,
+        globalNegativePrompt: 'blurry, low quality, distorted, malformed',
+        activePreset: null,
+        colorPaletteLock: false,
+        lockedColors: [],
+        useMasterSeed: false,
+        masterSeed: null,
+        consistencyLevel: 'medium',
+        
+        // Per-category style overrides
+        categoryStyles: {
+            background: { stylePrompt: '', negativePrompt: '' },
+            body: { stylePrompt: '', negativePrompt: '' },
+            eyes: { stylePrompt: '', negativePrompt: '' },
+            mouth: { stylePrompt: '', negativePrompt: '' },
+            hat: { stylePrompt: '', negativePrompt: '' }
+        }
+    }
 };
 
 // DOM element references (cached for performance)
 let domRefs = {};
+
+// ===== STYLE PRESETS LIBRARY =====
+
+const StylePresets = new Map([
+    ['cyberpunk', {
+        name: 'Cyberpunk',
+        masterStyle: 'cyberpunk, neon, futuristic, digital art, high-tech',
+        colorPalette: ['#00ffff', '#ff00ff', '#ffff00', '#ff0080', '#00ff80'],
+        textureHints: 'metallic, glowing, holographic, chrome, LED',
+        lightingMood: 'neon lighting, dramatic shadows, electric glow'
+    }],
+    ['medieval', {
+        name: 'Medieval Fantasy',
+        masterStyle: 'medieval, fantasy, ancient, mystical, enchanted',
+        colorPalette: ['#8b4513', '#daa520', '#228b22', '#4b0082', '#dc143c'],
+        textureHints: 'stone, wood, leather, metal, fabric',
+        lightingMood: 'torch lighting, warm glow, candlelight'
+    }],
+    ['minimalist', {
+        name: 'Minimalist',
+        masterStyle: 'minimalist, clean, simple, geometric, modern',
+        colorPalette: ['#ffffff', '#000000', '#808080', '#c0c0c0', '#f5f5f5'],
+        textureHints: 'smooth, matte, clean lines, flat',
+        lightingMood: 'soft, even lighting, natural light'
+    }],
+    ['retro', {
+        name: 'Retro 80s',
+        masterStyle: 'retro, 80s, synthwave, vintage, nostalgic',
+        colorPalette: ['#ff6b9d', '#4ecdc4', '#45b7d1', '#f9ca24', '#e056fd'],
+        textureHints: 'gradient, chrome, plastic, vinyl',
+        lightingMood: 'neon glow, sunset colors, vibrant'
+    }],
+    ['organic', {
+        name: 'Organic Nature',
+        masterStyle: 'organic, natural, flowing, botanical, earthy',
+        colorPalette: ['#2d5016', '#61892f', '#86c232', '#6b6e70', '#8fbc8f'],
+        textureHints: 'wood grain, leaf patterns, stone, bark',
+        lightingMood: 'natural sunlight, forest shadows, golden hour'
+    }],
+    ['abstract', {
+        name: 'Abstract Art',
+        masterStyle: 'abstract, artistic, expressive, creative, painterly',
+        colorPalette: ['#e74c3c', '#3498db', '#f39c12', '#9b59b6', '#1abc9c'],
+        textureHints: 'painterly, brushstrokes, textured, artistic',
+        lightingMood: 'artistic lighting, color play, dramatic'
+    }]
+]);
+
+// ===== COLOR PALETTE MANAGER =====
+
+class ColorPaletteManager {
+    constructor() {
+        this.isLocked = false;
+        this.lockedColors = [];
+        this.currentPalette = [];
+    }
+    
+    lockPalette(colors) {
+        if (!Array.isArray(colors)) {
+            throw new Error('Colors must be an array');
+        }
+        
+        // Validate hex colors
+        const validColors = colors.filter(color => this.isValidHexColor(color));
+        if (validColors.length !== colors.length) {
+            console.warn('Some colors were invalid and filtered out');
+        }
+        
+        this.lockedColors = validColors;
+        this.isLocked = true;
+        this.currentPalette = [...validColors];
+        
+        // Emit palette locked event
+        window.dispatchEvent(new CustomEvent('paletteChanged', {
+            detail: { locked: true, colors: this.lockedColors }
+        }));
+        
+        return validColors;
+    }
+    
+    unlockPalette() {
+        this.isLocked = false;
+        this.lockedColors = [];
+        
+        // Emit palette unlocked event
+        window.dispatchEvent(new CustomEvent('paletteChanged', {
+            detail: { locked: false, colors: [] }
+        }));
+    }
+    
+    getCurrentPalette() {
+        return this.isLocked ? [...this.lockedColors] : [...this.currentPalette];
+    }
+    
+    setCurrentPalette(colors) {
+        if (!this.isLocked) {
+            const validColors = colors.filter(color => this.isValidHexColor(color));
+            this.currentPalette = validColors;
+            
+            // Emit palette changed event
+            window.dispatchEvent(new CustomEvent('paletteChanged', {
+                detail: { locked: false, colors: validColors }
+            }));
+        }
+    }
+    
+    isValidHexColor(color) {
+        return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
+    }
+    
+    getRandomColorFromPalette() {
+        const palette = this.getCurrentPalette();
+        if (palette.length === 0) {
+            // Fallback to random color if no palette
+            return `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`;
+        }
+        
+        return palette[Math.floor(Math.random() * palette.length)];
+    }
+    
+    exportPaletteConfig() {
+        return {
+            isLocked: this.isLocked,
+            lockedColors: [...this.lockedColors],
+            currentPalette: [...this.currentPalette]
+        };
+    }
+    
+    importPaletteConfig(config) {
+        if (config.isLocked && config.lockedColors) {
+            this.lockPalette(config.lockedColors);
+        } else {
+            this.unlockPalette();
+            if (config.currentPalette) {
+                this.setCurrentPalette(config.currentPalette);
+            }
+        }
+    }
+}
+
+// ===== NEGATIVE PROMPT SYSTEM =====
+
+class NegativePromptManager {
+    constructor() {
+        this.globalNegativePrompt = 'blurry, low quality, distorted, malformed';
+        this.categoryNegativePrompts = {
+            background: '',
+            body: 'extra limbs, deformed',
+            eyes: 'missing eyes, extra eyes',
+            mouth: 'no mouth, multiple mouths',
+            hat: 'floating, disconnected'
+        };
+    }
+    
+    setGlobalNegativePrompt(prompt) {
+        this.globalNegativePrompt = prompt;
+        
+        // Emit global negative prompt changed event
+        window.dispatchEvent(new CustomEvent('globalNegativePromptChanged', {
+            detail: { prompt }
+        }));
+    }
+    
+    setCategoryNegativePrompt(category, prompt) {
+        if (this.categoryNegativePrompts.hasOwnProperty(category)) {
+            this.categoryNegativePrompts[category] = prompt;
+            
+            // Emit category negative prompt changed event
+            window.dispatchEvent(new CustomEvent('categoryNegativePromptChanged', {
+                detail: { category, prompt }
+            }));
+        }
+    }
+    
+    buildNegativePrompt(category) {
+        const prompts = [];
+        
+        // Add global negative prompt
+        if (this.globalNegativePrompt) {
+            prompts.push(this.globalNegativePrompt);
+        }
+        
+        // Add category-specific negative prompt
+        if (category && this.categoryNegativePrompts[category]) {
+            prompts.push(this.categoryNegativePrompts[category]);
+        }
+        
+        return prompts.join(', ');
+    }
+    
+    exportNegativePromptConfig() {
+        return {
+            globalNegativePrompt: this.globalNegativePrompt,
+            categoryNegativePrompts: { ...this.categoryNegativePrompts }
+        };
+    }
+    
+    importNegativePromptConfig(config) {
+        if (config.globalNegativePrompt !== undefined) {
+            this.setGlobalNegativePrompt(config.globalNegativePrompt);
+        }
+        
+        if (config.categoryNegativePrompts) {
+            Object.entries(config.categoryNegativePrompts).forEach(([category, prompt]) => {
+                this.setCategoryNegativePrompt(category, prompt);
+            });
+        }
+    }
+}
+
+// ===== STYLE ENGINE =====
+
+class StyleEngine {
+    constructor() {
+        this.masterStylePrompt = '';
+        this.categoryTemplates = {
+            background: 'A {style} background with {colors}',
+            body: 'A {style} character body with {colors}',
+            eyes: '{style} eyes with {colors}',
+            mouth: 'A {style} mouth with {colors}',
+            hat: 'A {style} hat with {colors}'
+        };
+        this.activePreset = null;
+        this.stylePresets = StylePresets;
+        this.colorPaletteManager = new ColorPaletteManager();
+        this.negativePromptManager = new NegativePromptManager();
+    }
+
+    
+    buildPrompt(category, basePrompt, options = {}) {
+        let prompt = basePrompt;
+        
+        // Apply category template if available
+        if (this.categoryTemplates[category]) {
+            const template = this.categoryTemplates[category];
+            prompt = template.replace('{style}', this.masterStylePrompt || 'detailed');
+            
+            // Replace color placeholders
+            if (options.colors) {
+                prompt = prompt.replace('{colors}', options.colors.join(', '));
+            } else {
+                prompt = prompt.replace('{colors}', 'vibrant colors');
+            }
+        }
+        
+        // Prepend master style prompt
+        if (this.masterStylePrompt) {
+            prompt = `${this.masterStylePrompt}, ${prompt}`;
+        }
+        
+        // Apply active preset styling
+        if (this.activePreset && this.stylePresets.has(this.activePreset)) {
+            const preset = this.stylePresets.get(this.activePreset);
+            prompt = `${preset.masterStyle}, ${prompt}`;
+            
+            if (preset.textureHints) {
+                prompt += `, ${preset.textureHints}`;
+            }
+            
+            if (preset.lightingMood) {
+                prompt += `, ${preset.lightingMood}`;
+            }
+        }
+        
+        return prompt;
+    }
+    
+    applyPreset(presetName) {
+        if (this.stylePresets.has(presetName)) {
+            this.activePreset = presetName;
+            const preset = this.stylePresets.get(presetName);
+            this.masterStylePrompt = preset.masterStyle;
+            
+            // Apply preset color palette
+            this.colorPaletteManager.setCurrentPalette(preset.colorPalette);
+            
+            // Emit preset changed event
+            window.dispatchEvent(new CustomEvent('stylePresetChanged', {
+                detail: { presetName, preset }
+            }));
+            
+            return true;
+        }
+        return false;
+    }
+    
+    getActivePreset() {
+        return this.activePreset ? this.stylePresets.get(this.activePreset) : null;
+    }
+    
+    getAllPresets() {
+        return Array.from(this.stylePresets.entries()).map(([key, preset]) => ({
+            id: key,
+            ...preset
+        }));
+    }
+    
+    setMasterStylePrompt(prompt) {
+        this.masterStylePrompt = prompt;
+        
+        // Emit style changed event
+        window.dispatchEvent(new CustomEvent('masterStyleChanged', {
+            detail: { masterStylePrompt: prompt }
+        }));
+    }
+    
+    setGlobalNegativePrompt(prompt) {
+        this.negativePromptManager.setGlobalNegativePrompt(prompt);
+    }
+    
+    setCategoryNegativePrompt(category, prompt) {
+        this.negativePromptManager.setCategoryNegativePrompt(category, prompt);
+    }
+    
+    buildNegativePrompt(category) {
+        return this.negativePromptManager.buildNegativePrompt(category);
+    }
+    
+    lockColorPalette(colors) {
+        return this.colorPaletteManager.lockPalette(colors);
+    }
+    
+    unlockColorPalette() {
+        this.colorPaletteManager.unlockPalette();
+    }
+    
+    getCurrentColorPalette() {
+        return this.colorPaletteManager.getCurrentPalette();
+    }
+    
+    setCategoryTemplate(category, template) {
+        this.categoryTemplates[category] = template;
+    }
+    
+    exportStyleConfig() {
+        return {
+            masterStylePrompt: this.masterStylePrompt,
+            categoryTemplates: { ...this.categoryTemplates },
+            activePreset: this.activePreset,
+            negativePrompts: this.negativePromptManager.exportNegativePromptConfig(),
+            colorPalette: this.colorPaletteManager.exportPaletteConfig(),
+            customPresets: Array.from(this.stylePresets.entries())
+                .filter(([key]) => !['cyberpunk', 'medieval', 'minimalist', 'retro', 'organic', 'abstract'].includes(key))
+        };
+    }
+    
+    importStyleConfig(config) {
+        if (config.masterStylePrompt !== undefined) {
+            this.masterStylePrompt = config.masterStylePrompt;
+        }
+        
+        if (config.categoryTemplates) {
+            this.categoryTemplates = { ...this.categoryTemplates, ...config.categoryTemplates };
+        }
+        
+        if (config.activePreset) {
+            this.activePreset = config.activePreset;
+        }
+        
+        if (config.negativePrompts) {
+            this.negativePromptManager.importNegativePromptConfig(config.negativePrompts);
+        }
+        
+        if (config.colorPalette) {
+            this.colorPaletteManager.importPaletteConfig(config.colorPalette);
+        }
+        
+        if (config.customPresets) {
+            config.customPresets.forEach(([key, preset]) => {
+                this.stylePresets.set(key, preset);
+            });
+        }
+        
+        // Emit config imported event
+        window.dispatchEvent(new CustomEvent('styleConfigImported', {
+            detail: config
+        }));
+    }
+}
 
 // ===== INITIALIZATION =====
 
@@ -58,6 +462,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Initialize API providers and configuration
     await initializeAPIProviders();
     await loadAPIConfiguration();
+    
+    // Initialize style engine
+    initializeStyleEngine();
     
     console.log('NFT Generator initialized successfully');
 });
@@ -130,7 +537,32 @@ function initializeSliderListeners() {
 
 // ===== UTILITY FUNCTIONS =====
 
-function parseColorSeed(seedInput) {
+function parseColorSeed(seedInput, category = null, index = 0) {
+    // Check if using master seed system
+    if (seedManager.useMasterSeed && category) {
+        const seededRand = seedManager.getSeededRandom(category, index);
+        return {
+            h: Math.floor(seededRand * 360),
+            s: Math.floor(seededRand * 50) + 50, // 50-100% saturation
+            l: Math.floor(seededRand * 40) + 30   // 30-70% lightness
+        };
+    }
+    
+    // Check if color palette is locked
+    const currentPalette = styleEngine.getCurrentColorPalette();
+    if (currentPalette.length > 0) {
+        const colorIndex = category && seedManager.useMasterSeed ? 
+            Math.floor(seedManager.getSeededRandom(category, index) * currentPalette.length) :
+            Math.floor(Math.random() * currentPalette.length);
+        
+        const hexColor = currentPalette[colorIndex];
+        const hex = hexColor.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        return rgbToHsl(r, g, b);
+    }
+    
     if (!seedInput || seedInput.toLowerCase() === 'random') {
         // Generate random HSL color
         return {
@@ -151,7 +583,7 @@ function parseColorSeed(seedInput) {
     }
     
     // Fallback to random if invalid
-    return parseColorSeed('random');
+    return parseColorSeed('random', category, index);
 }
 
 function rgbToHsl(r, g, b) {
@@ -189,6 +621,106 @@ function seededRandom(seed) {
     const x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
 }
+
+// ===== MASTER SEED MANAGEMENT =====
+
+class SeedManager {
+    constructor() {
+        this.masterSeed = null;
+        this.useMasterSeed = false;
+        this.categorySeeds = {};
+    }
+    
+    setMasterSeed(seed) {
+        this.masterSeed = seed;
+        this.regenerateCategorySeeds();
+        
+        // Emit master seed changed event
+        window.dispatchEvent(new CustomEvent('masterSeedChanged', {
+            detail: { masterSeed: seed, useMasterSeed: this.useMasterSeed }
+        }));
+    }
+    
+    setUseMasterSeed(enabled) {
+        this.useMasterSeed = enabled;
+        
+        if (enabled && this.masterSeed !== null) {
+            this.regenerateCategorySeeds();
+        }
+        
+        // Emit master seed usage changed event
+        window.dispatchEvent(new CustomEvent('masterSeedUsageChanged', {
+            detail: { useMasterSeed: enabled, masterSeed: this.masterSeed }
+        }));
+    }
+    
+    regenerateCategorySeeds() {
+        if (this.masterSeed !== null) {
+            const categories = ['background', 'body', 'eyes', 'mouth', 'hat'];
+            categories.forEach(category => {
+                this.categorySeeds[category] = this.deriveCategorySeed(this.masterSeed, category);
+            });
+        }
+    }
+    
+    deriveCategorySeed(masterSeed, categoryName) {
+        // Create deterministic seed from master seed and category name
+        let hash = 0;
+        const combined = `${masterSeed}_${categoryName}`;
+        
+        for (let i = 0; i < combined.length; i++) {
+            const char = combined.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        
+        return Math.abs(hash);
+    }
+    
+    getCategorySeed(categoryName) {
+        if (this.useMasterSeed && this.categorySeeds[categoryName] !== undefined) {
+            return this.categorySeeds[categoryName];
+        }
+        
+        // Fallback to random seed if master seed not used
+        return Math.floor(Math.random() * 1000000);
+    }
+    
+    getSeededRandom(categoryName, index = 0) {
+        const seed = this.getCategorySeed(categoryName) + index;
+        return seededRandom(seed);
+    }
+    
+    exportSeedConfig() {
+        return {
+            masterSeed: this.masterSeed,
+            useMasterSeed: this.useMasterSeed,
+            categorySeeds: { ...this.categorySeeds }
+        };
+    }
+    
+    importSeedConfig(config) {
+        if (config.masterSeed !== undefined) {
+            this.masterSeed = config.masterSeed;
+        }
+        
+        if (config.useMasterSeed !== undefined) {
+            this.useMasterSeed = config.useMasterSeed;
+        }
+        
+        if (config.categorySeeds) {
+            this.categorySeeds = { ...config.categorySeeds };
+        }
+        
+        // Regenerate seeds if master seed is set and enabled
+        if (this.useMasterSeed && this.masterSeed !== null) {
+            this.regenerateCategorySeeds();
+        }
+    }
+}
+
+// Create global seed manager instance
+const seedManager = new SeedManager();
 
 function generateUniqueId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -591,9 +1123,11 @@ function generateTraitImage(category, complexity, colorSeed, index) {
         canvas.height = 500;
         const ctx = canvas.getContext('2d');
         
-        // Parse color seed
-        const baseColor = parseColorSeed(colorSeed);
-        const seed = (baseColor.h + baseColor.s + baseColor.l + index) * 1000;
+        // Parse color seed with category and index for master seed support
+        const baseColor = parseColorSeed(colorSeed, category, index);
+        const seed = seedManager.useMasterSeed ? 
+            seedManager.getCategorySeed(category) + index :
+            (baseColor.h + baseColor.s + baseColor.l + index) * 1000;
         
         // Clear canvas with transparent background
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1631,4 +2165,168 @@ function updateProviderStatusUI(validationResults) {
     window.dispatchEvent(new CustomEvent('providerStatusUpdated', {
         detail: validationResults
     }));
+}
+
+// ===== STYLE ENGINE INITIALIZATION =====
+
+function initializeStyleEngine() {
+    try {
+        // Load saved style configuration if available
+        const savedStyleConfig = localStorage.getItem('nft_generator_style_config');
+        if (savedStyleConfig) {
+            const config = JSON.parse(savedStyleConfig);
+            styleEngine.importStyleConfig(config);
+        }
+        
+        // Sync style engine to global configuration
+        syncStyleToGlobalConfig();
+        
+        // Set up event listeners for style changes
+        window.addEventListener('stylePresetChanged', (event) => {
+            saveStyleConfiguration();
+        });
+        
+        window.addEventListener('masterStyleChanged', (event) => {
+            saveStyleConfiguration();
+        });
+        
+        window.addEventListener('globalNegativePromptChanged', (event) => {
+            saveStyleConfiguration();
+        });
+        
+        window.addEventListener('categoryNegativePromptChanged', (event) => {
+            saveStyleConfiguration();
+        });
+        
+        window.addEventListener('paletteChanged', (event) => {
+            saveStyleConfiguration();
+        });
+        
+        window.addEventListener('masterSeedChanged', (event) => {
+            saveStyleConfiguration();
+        });
+        
+        window.addEventListener('masterSeedUsageChanged', (event) => {
+            saveStyleConfiguration();
+        });
+        
+        console.log('Style engine initialized successfully');
+        
+    } catch (error) {
+        console.error('Failed to initialize style engine:', error);
+    }
+}
+
+function saveStyleConfiguration() {
+    try {
+        const config = styleEngine.exportStyleConfig();
+        localStorage.setItem('nft_generator_style_config', JSON.stringify(config));
+        
+        // Sync to global configuration
+        syncStyleToGlobalConfig();
+    } catch (error) {
+        console.error('Failed to save style configuration:', error);
+    }
+}
+
+// ===== STYLE CONFIGURATION SYNC =====
+
+function syncStyleToGlobalConfig() {
+    try {
+        // Sync style engine state to configCache.globalStyle
+        configCache.globalStyle.masterPrompt = styleEngine.masterStylePrompt;
+        configCache.globalStyle.activePreset = styleEngine.activePreset;
+        
+        // Sync negative prompts
+        const negativeConfig = styleEngine.negativePromptManager.exportNegativePromptConfig();
+        configCache.globalStyle.globalNegativePrompt = negativeConfig.globalNegativePrompt;
+        
+        // Sync category negative prompts
+        Object.entries(negativeConfig.categoryNegativePrompts).forEach(([category, prompt]) => {
+            if (configCache.globalStyle.categoryStyles[category]) {
+                configCache.globalStyle.categoryStyles[category].negativePrompt = prompt;
+            }
+        });
+        
+        // Sync color palette
+        const paletteConfig = styleEngine.colorPaletteManager.exportPaletteConfig();
+        configCache.globalStyle.colorPaletteLock = paletteConfig.isLocked;
+        configCache.globalStyle.lockedColors = paletteConfig.lockedColors;
+        
+        // Sync seed configuration
+        const seedConfig = seedManager.exportSeedConfig();
+        configCache.globalStyle.useMasterSeed = seedConfig.useMasterSeed;
+        configCache.globalStyle.masterSeed = seedConfig.masterSeed;
+        
+        // Emit sync completed event
+        window.dispatchEvent(new CustomEvent('styleConfigSynced', {
+            detail: { globalStyle: configCache.globalStyle }
+        }));
+        
+    } catch (error) {
+        console.error('Failed to sync style configuration:', error);
+    }
+}
+
+function syncGlobalConfigToStyle() {
+    try {
+        const globalStyle = configCache.globalStyle;
+        
+        // Sync master prompt
+        if (globalStyle.masterPrompt) {
+            styleEngine.setMasterStylePrompt(globalStyle.masterPrompt);
+        }
+        
+        // Sync active preset
+        if (globalStyle.activePreset) {
+            styleEngine.applyPreset(globalStyle.activePreset);
+        }
+        
+        // Sync negative prompts
+        styleEngine.negativePromptManager.setGlobalNegativePrompt(globalStyle.globalNegativePrompt);
+        
+        Object.entries(globalStyle.categoryStyles).forEach(([category, style]) => {
+            if (style.negativePrompt) {
+                styleEngine.negativePromptManager.setCategoryNegativePrompt(category, style.negativePrompt);
+            }
+        });
+        
+        // Sync color palette
+        if (globalStyle.colorPaletteLock && globalStyle.lockedColors.length > 0) {
+            styleEngine.colorPaletteManager.lockPalette(globalStyle.lockedColors);
+        }
+        
+        // Sync seed configuration
+        if (globalStyle.masterSeed !== null) {
+            seedManager.setMasterSeed(globalStyle.masterSeed);
+        }
+        seedManager.setUseMasterSeed(globalStyle.useMasterSeed);
+        
+    } catch (error) {
+        console.error('Failed to sync global config to style:', error);
+    }
+}
+
+function getGlobalStyleConfiguration() {
+    // Ensure configuration is synced before returning
+    syncStyleToGlobalConfig();
+    return { ...configCache.globalStyle };
+}
+
+function updateGlobalStyleConfiguration(updates) {
+    try {
+        // Update configCache
+        Object.assign(configCache.globalStyle, updates);
+        
+        // Sync changes back to style engine
+        syncGlobalConfigToStyle();
+        
+        // Save to localStorage
+        saveStyleConfiguration();
+        
+        return true;
+    } catch (error) {
+        console.error('Failed to update global style configuration:', error);
+        return false;
+    }
 }
