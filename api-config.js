@@ -219,8 +219,8 @@ class APIConfigManager {
         };
         
         // Get active provider
-        if (window.apiManager && window.apiState.activeProvider) {
-            settings.activeProvider = window.apiState.activeProvider.getName();
+        if (window.apiManager) {
+            settings.activeProvider = window.apiManager.getActiveProviderName();
         }
         
         // Get logger settings

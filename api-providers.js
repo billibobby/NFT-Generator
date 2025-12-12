@@ -96,36 +96,19 @@ class GeminiProvider extends BaseAPIProvider {
     async generateImage(prompt, options = {}) {
         this.recordRequest();
         
-        const requestBody = {
-            contents: [{
-                parts: [{
-                    text: `Generate an image: ${prompt}`
-                }]
-            }],
-            generationConfig: {
-                temperature: options.temperature || 0.7,
-                maxOutputTokens: options.maxTokens || 1024
-            }
-        };
+        // STUB: Gemini does not currently have a production-ready image generation endpoint
+        // This is a placeholder implementation that generates a canvas-based image
+        // TODO: Replace with actual Gemini image generation API when available
         
         try {
-            const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-            
-            if (!response.ok) {
-                throw await this.handleErrorResponse(response);
+            // Feature flag to guard against production use
+            if (!options.allowStubImplementation) {
+                throw new ProviderError(this.getName(), 'STUB_IMPLEMENTATION', 
+                    'Gemini image generation is not yet available - this is a placeholder implementation');
             }
             
-            const data = await response.json();
-            
-            // Gemini returns text, not images directly
-            // This is a placeholder - actual implementation would need image generation capability
-            const imageData = await this.convertTextToImage(data.candidates[0].content.parts[0].text);
+            // Generate placeholder image with text overlay
+            const imageData = await this.generatePlaceholderImage(prompt, options);
             
             this.updateHealthScore(true);
             return imageData;
@@ -136,22 +119,66 @@ class GeminiProvider extends BaseAPIProvider {
         }
     }
     
-    async convertTextToImage(text) {
-        // Placeholder for text-to-image conversion
-        // In reality, Gemini would need to be used with a different endpoint or model
-        // For now, return a placeholder data URL
+    async generatePlaceholderImage(prompt, options = {}) {
+        // PLACEHOLDER: Generate a canvas-based image with prompt text
+        // This is clearly marked as a stub implementation
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
         const ctx = canvas.getContext('2d');
         
-        ctx.fillStyle = '#f0f0f0';
+        // Create gradient background
+        const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+        gradient.addColorStop(0, '#e3f2fd');
+        gradient.addColorStop(1, '#bbdefb');
+        ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, 512, 512);
-        ctx.fillStyle = '#333';
-        ctx.font = '16px Arial';
+        
+        // Add border
+        ctx.strokeStyle = '#1976d2';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, 508, 508);
+        
+        // Add "STUB" watermark
+        ctx.fillStyle = 'rgba(25, 118, 210, 0.1)';
+        ctx.font = 'bold 48px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Gemini Generated', 256, 256);
-        ctx.fillText(text.substring(0, 50), 256, 280);
+        ctx.fillText('STUB', 256, 100);
+        
+        // Add provider name
+        ctx.fillStyle = '#1976d2';
+        ctx.font = 'bold 24px Arial';
+        ctx.fillText('Gemini Provider', 256, 150);
+        ctx.font = '16px Arial';
+        ctx.fillText('(Placeholder Implementation)', 256, 175);
+        
+        // Add prompt text (wrapped)
+        ctx.fillStyle = '#333';
+        ctx.font = '14px Arial';
+        const words = prompt.split(' ');
+        let line = '';
+        let y = 220;
+        
+        for (let i = 0; i < words.length; i++) {
+            const testLine = line + words[i] + ' ';
+            const metrics = ctx.measureText(testLine);
+            const testWidth = metrics.width;
+            
+            if (testWidth > 450 && i > 0) {
+                ctx.fillText(line, 256, y);
+                line = words[i] + ' ';
+                y += 20;
+                if (y > 450) break; // Prevent overflow
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line, 256, y);
+        
+        // Add timestamp
+        ctx.font = '12px Arial';
+        ctx.fillStyle = '#666';
+        ctx.fillText(`Generated: ${new Date().toISOString()}`, 256, 480);
         
         return canvas.toDataURL('image/png');
     }

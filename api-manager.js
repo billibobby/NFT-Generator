@@ -20,11 +20,13 @@ class APIManager {
         this.logger = new APIRequestLogger();
         this.maxFailoverAttempts = 3;
         this.healthCheckInterval = 5 * 60 * 1000; // 5 minutes
+        this.healthCheckIntervalId = null; // Track interval ID
         this.cooldownPeriod = 5 * 60 * 1000; // 5 minutes
         this.disabledProviders = new Map(); // Track disabled providers with cooldown
+        this.healthChecksStarted = false; // Track health check state
         
-        // Start periodic health checks
-        this.startHealthChecks();
+        // Assign logger to window for APIConfigManager access
+        window.apiLogger = this.logger;
     }
     
     registerProvider(provider) {
@@ -48,6 +50,12 @@ class APIManager {
         // Set as active if no active provider
         if (!apiState.activeProvider) {
             this.setActiveProvider(provider.getName());
+        }
+        
+        // Lazy-start health checks after first provider registration
+        if (!this.healthChecksStarted) {
+            this.startHealthChecks();
+            this.healthChecksStarted = true;
         }
         
         console.log(`Provider registered: ${provider.getName()}`);
@@ -75,119 +83,87 @@ class APIManager {
         }
         
         const startTime = Date.now();
-        let lastError = null;
         let attemptCount = 0;
         
-        // Get ordered list of providers to try
-        const providersToTry = this.getFailoverSequence();
-        
-        if (providersToTry.length === 0) {
-            throw new Error('No healthy providers available');
-        }
-        
-        for (const provider of providersToTry) {
-            attemptCount++;
+        // Define the image generation operation
+        const imageGenerationOperation = async (provider, context) => {
+            attemptCount = context.attempt;
+            
+            // Check if provider is in cooldown
+            if (this.isProviderInCooldown(provider.getName())) {
+                throw new Error(`Provider ${provider.getName()} is in cooldown`);
+            }
+            
+            // Check quota before attempting request
+            const canMakeRequest = await this.rateLimiters.checkQuota(provider);
+            if (!canMakeRequest) {
+                throw new QuotaExceededError(provider.getName(), null, 'Quota exceeded');
+            }
+            
+            // Acquire rate limit token
+            await this.rateLimiters.acquireToken(provider.getName());
+            
+            // Log request start
+            const requestId = this.logger.logRequest(provider.getName(), prompt, options);
             
             try {
-                // Check if provider is in cooldown
-                if (this.isProviderInCooldown(provider.getName())) {
-                    console.log(`Skipping ${provider.getName()} - in cooldown`);
-                    continue;
-                }
+                // Attempt image generation
+                const result = await provider.generateImage(prompt, options);
                 
-                // Check quota before attempting request
-                const canMakeRequest = await this.rateLimiters.checkQuota(provider);
-                if (!canMakeRequest) {
-                    console.log(`Skipping ${provider.getName()} - quota exceeded`);
-                    continue;
-                }
+                // Log successful response
+                const duration = Date.now() - startTime;
+                this.logger.logResponse(requestId, 'success', result, duration);
                 
-                // Acquire rate limit token
-                await this.rateLimiters.acquireToken(provider.getName());
+                // Emit success event
+                this.emitEvent('imageGenerated', {
+                    provider: provider.getName(),
+                    prompt,
+                    duration,
+                    attempt: attemptCount
+                });
                 
-                // Log request start
-                const requestId = this.logger.logRequest(provider.getName(), prompt, options);
-                
-                try {
-                    // Attempt image generation
-                    const result = await provider.generateImage(prompt, options);
-                    
-                    // Log successful response
-                    const duration = Date.now() - startTime;
-                    this.logger.logResponse(requestId, 'success', result, duration);
-                    
-                    // Update provider health
-                    provider.updateHealthScore(true);
-                    
-                    // Emit success event
-                    this.emitEvent('imageGenerated', {
-                        provider: provider.getName(),
-                        prompt,
-                        duration,
-                        attempt: attemptCount
-                    });
-                    
-                    return result;
-                    
-                } catch (error) {
-                    // Release rate limit token on failure
-                    this.rateLimiters.releaseToken(provider.getName());
-                    
-                    // Handle and classify error
-                    const errorInfo = this.errorHandler.handleError(error, {
-                        provider: provider.getName(),
-                        operation: 'generateImage',
-                        attempt: attemptCount
-                    });
-                    
-                    // Log error
-                    this.logger.logError(requestId, errorInfo.error);
-                    
-                    // Update provider health
-                    provider.updateHealthScore(false);
-                    
-                    // Check if we should disable provider
-                    if (!provider.isHealthy()) {
-                        this.disableProviderTemporarily(provider.getName());
-                    }
-                    
-                    lastError = errorInfo.error;
-                    
-                    // If error is not retriable or this is the last provider, break
-                    if (!this.errorHandler.isRetriable(errorInfo.error) || 
-                        provider === providersToTry[providersToTry.length - 1]) {
-                        break;
-                    }
-                    
-                    // Show failover notification
-                    this.showFailoverNotification(provider.getName(), errorInfo.error);
-                    
-                    // Wait before trying next provider if needed
-                    if (errorInfo.retryDelay > 0) {
-                        await this.delay(Math.min(errorInfo.retryDelay, 5000)); // Max 5 second delay
-                    }
-                }
+                return result;
                 
             } catch (error) {
-                // Unexpected error in failover logic
-                console.error(`Unexpected error with provider ${provider.getName()}:`, error);
-                lastError = error;
+                // Release rate limit token on failure
+                this.rateLimiters.releaseToken(provider.getName());
+                
+                // Log error
+                this.logger.logError(requestId, error);
+                
+                // Show failover notification if this will trigger failover
+                if (this.errorHandler.isRetriable(error)) {
+                    this.showFailoverNotification(provider.getName(), error);
+                }
+                
+                throw error;
             }
+        };
+        
+        try {
+            // Use executeWithFailover for centralized provider selection and retry handling
+            const result = await this.executeWithFailover(imageGenerationOperation, {
+                operation: 'generateImage',
+                prompt: prompt
+            });
+            
+            return result;
+            
+        } catch (error) {
+            // All providers failed
+            const totalDuration = Date.now() - startTime;
+            
+            // Emit failure event
+            this.emitEvent('imageGenerationFailed', {
+                prompt,
+                attempts: attemptCount,
+                duration: totalDuration,
+                lastError: error
+            });
+            
+            // Throw aggregated error
+            throw new Error(`All providers failed. Last error: ${error?.message || 'Unknown error'}`);
         }
-        
-        // All providers failed
-        const totalDuration = Date.now() - startTime;
-        
-        // Emit failure event
-        this.emitEvent('imageGenerationFailed', {
-            prompt,
-            attempts: attemptCount,
-            duration: totalDuration,
-            lastError: lastError
-        });
-        
-        // Throw aggregated error
-        throw new Error(`All providers failed. Last error: ${lastError?.message || 'Unknown error'}`);
     }
     
     async validateAllProviders() {
@@ -264,8 +240,8 @@ class APIManager {
     }
     
     updateFailoverQueue() {
-        // Default order: Gemini → Stable Diffusion → OpenAI
-        const defaultOrder = ['gemini', 'stable_diffusion', 'openai'];
+        // Default order: Stable Diffusion → OpenAI (Gemini excluded due to stub implementation)
+        const defaultOrder = ['stable_diffusion', 'openai', 'gemini'];
         
         apiState.failoverQueue = [];
         
@@ -326,13 +302,28 @@ class APIManager {
     }
     
     startHealthChecks() {
-        setInterval(async () => {
+        if (this.healthCheckIntervalId) {
+            clearInterval(this.healthCheckIntervalId);
+        }
+        
+        this.healthCheckIntervalId = setInterval(async () => {
             try {
                 await this.performHealthChecks();
             } catch (error) {
                 console.error('Health check failed:', error);
             }
         }, this.healthCheckInterval);
+        
+        console.log('Health checks started');
+    }
+    
+    stopHealthChecks() {
+        if (this.healthCheckIntervalId) {
+            clearInterval(this.healthCheckIntervalId);
+            this.healthCheckIntervalId = null;
+            this.healthChecksStarted = false;
+            console.log('Health checks stopped');
+        }
     }
     
     async performHealthChecks() {
@@ -400,6 +391,10 @@ class APIManager {
             providerStatus: this.getProviderStatus(),
             statistics: this.logger.getStatistics()
         };
+    }
+    
+    getActiveProviderName() {
+        return apiState.activeProvider ? apiState.activeProvider.getName() : null;
     }
     
     // Automatic failover system implementation

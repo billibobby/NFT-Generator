@@ -5,7 +5,7 @@
 
 class EncryptionUtils {
     static async generateEncryptionKey() {
-        // Generate or retrieve salt for key derivation
+        // Generate or retrieve salt for PBKDF2 (used only as salt, not as key material)
         let salt = localStorage.getItem('nft_generator_encryption_salt');
         if (!salt) {
             const saltArray = crypto.getRandomValues(new Uint8Array(16));
@@ -13,27 +13,37 @@ class EncryptionUtils {
             localStorage.setItem('nft_generator_encryption_salt', salt);
         }
         
-        // Convert salt back to Uint8Array
-        const saltBytes = new Uint8Array(atob(salt).split('').map(char => char.charCodeAt(0)));
+        // Generate or retrieve master key (separate from salt for proper entropy)
+        let masterKey = localStorage.getItem('nft_generator_master_key');
+        if (!masterKey) {
+            // Generate a random master key with proper entropy
+            const masterKeyArray = crypto.getRandomValues(new Uint8Array(32));
+            masterKey = btoa(String.fromCharCode(...masterKeyArray));
+            localStorage.setItem('nft_generator_master_key', masterKey);
+        }
         
-        // Create key material from salt and browser fingerprint
+        // Convert to Uint8Arrays
+        const saltBytes = new Uint8Array(atob(salt).split('').map(char => char.charCodeAt(0)));
+        const masterKeyBytes = new Uint8Array(atob(masterKey).split('').map(char => char.charCodeAt(0)));
+        
+        // Import master key as PBKDF2 key material (proper entropy source)
         const keyMaterial = await crypto.subtle.importKey(
             'raw',
-            saltBytes,
+            masterKeyBytes,
             { name: 'PBKDF2' },
             false,
             ['deriveKey']
         );
         
-        // Derive AES-256-GCM key
+        // Derive AES-256-GCM key using master key as source and salt as salt parameter
         return await crypto.subtle.deriveKey(
             {
                 name: 'PBKDF2',
-                salt: saltBytes,
+                salt: saltBytes, // Salt used properly as salt parameter
                 iterations: 100000,
                 hash: 'SHA-256'
             },
-            keyMaterial,
+            keyMaterial, // Master key used as key material (proper entropy)
             { name: 'AES-GCM', length: 256 },
             false,
             ['encrypt', 'decrypt']
@@ -218,6 +228,7 @@ class APIKeyStorage {
         try {
             localStorage.removeItem(this.storageKey);
             localStorage.removeItem('nft_generator_encryption_salt');
+            localStorage.removeItem('nft_generator_master_key');
             this.encryptionKey = null;
             return true;
         } catch (error) {
