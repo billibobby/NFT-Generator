@@ -12,6 +12,10 @@ const globalState = {
     hat: []
 };
 
+// Add to global state section - API Management
+const apiManager = new APIManager();
+const apiKeyStorage = new APIKeyStorage();
+
 // Rarity state object to store trait weights organized by category
 const rarityState = {
     background: [],
@@ -44,12 +48,17 @@ let domRefs = {};
 
 // ===== INITIALIZATION =====
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     initializeDOMReferences();
     initializeSliderListeners();
     initializeGenerateButton();
     initializeCollectionGeneration();
     initializeDownloadButton();
+    
+    // Initialize API providers and configuration
+    await initializeAPIProviders();
+    await loadAPIConfiguration();
+    
     console.log('NFT Generator initialized successfully');
 });
 
@@ -1511,4 +1520,115 @@ function initializeDownloadButton() {
             }
         }
     });
+}
+
+// ===== API PROVIDER INITIALIZATION =====
+
+async function initializeAPIProviders() {
+    try {
+        // Load stored API keys from apiKeyStorage
+        const storedProviders = await apiKeyStorage.getAllProviders();
+        
+        for (const providerInfo of storedProviders) {
+            const apiKey = await apiKeyStorage.getAPIKey(providerInfo.name);
+            
+            if (apiKey) {
+                let provider;
+                
+                // Instantiate provider objects for each stored key
+                switch (providerInfo.name) {
+                    case 'gemini':
+                        provider = new GeminiProvider(apiKey);
+                        break;
+                    case 'openai':
+                        provider = new OpenAIProvider(apiKey);
+                        break;
+                    case 'stable_diffusion':
+                        provider = new StableDiffusionProvider(apiKey);
+                        break;
+                    default:
+                        console.warn(`Unknown provider: ${providerInfo.name}`);
+                        continue;
+                }
+                
+                // Register providers with apiManager
+                apiManager.registerProvider(provider);
+                console.log(`Initialized provider: ${providerInfo.name}`);
+            }
+        }
+        
+        // Set default active provider (first available)
+        const availableProviders = apiManager.getProviderStatus();
+        if (availableProviders.length > 0) {
+            const firstHealthy = availableProviders.find(p => p.isHealthy);
+            if (firstHealthy) {
+                apiManager.setActiveProvider(firstHealthy.name);
+            }
+        }
+        
+        // Validate all providers asynchronously
+        setTimeout(async () => {
+            try {
+                const validationResults = await apiManager.validateAllProviders();
+                console.log('Provider validation results:', validationResults);
+                
+                // Update UI with provider status indicators (placeholder for Phase 4)
+                updateProviderStatusUI(validationResults);
+            } catch (error) {
+                console.warn('Provider validation failed:', error);
+            }
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Failed to initialize API providers:', error);
+    }
+}
+
+async function loadAPIConfiguration() {
+    try {
+        // Check localStorage for saved provider preferences
+        const configManager = new APIConfigManager();
+        const lastConfig = configManager.getLastAppliedConfiguration();
+        
+        if (lastConfig) {
+            // Load last used provider as active
+            if (lastConfig.settings && lastConfig.settings.activeProvider) {
+                try {
+                    apiManager.setActiveProvider(lastConfig.settings.activeProvider);
+                } catch (error) {
+                    console.warn('Could not restore active provider:', error);
+                }
+            }
+            
+            // Restore failover order from saved config
+            if (lastConfig.providers) {
+                const sortedProviders = Object.entries(lastConfig.providers)
+                    .sort(([, a], [, b]) => a.priority - b.priority)
+                    .map(([name]) => name);
+                
+                apiManager.setFailoverOrder(sortedProviders);
+            }
+        }
+        
+        // Initialize request logging settings
+        const settings = configManager.loadSettings();
+        if (settings.logVerbosity !== undefined && window.apiLogger) {
+            window.apiLogger.setVerbosity(settings.logVerbosity);
+        }
+        
+        console.log('API configuration loaded successfully');
+        
+    } catch (error) {
+        console.error('Failed to load API configuration:', error);
+    }
+}
+
+function updateProviderStatusUI(validationResults) {
+    // Placeholder for UI updates - will be implemented in Phase 4
+    console.log('Provider status update:', validationResults);
+    
+    // Emit event for potential UI listeners
+    window.dispatchEvent(new CustomEvent('providerStatusUpdated', {
+        detail: validationResults
+    }));
 }
