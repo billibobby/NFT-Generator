@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT Generator - Layer-based Collection Creator</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="app-header">
+            <h1>NFT Collection Generator</h1>
+            <p>Upload trait layers, configure rarity, and generate unique NFT collections</p>
+        </header>
+
+        <!-- Trait Layer Upload Area -->
+        <section class="trait-upload-section" id="traitUpload">
+            <h2>1. Generate Trait Layers</h2>
+            <div class="trait-categories">
+                <!-- Background Category -->
+                <div class="trait-category">
+                    <h3>Background</h3>
+                    <label for="bg-numTraits">Number of Traits: <span class="slider-value" id="bg-numTraits-value">20</span></label>
+                    <input type="range" id="bg-numTraits" min="13" max="50" value="20" class="slider">
+                    <label for="bg-complexity">Complexity: <span class="slider-value" id="bg-complexity-value">5</span></label>
+                    <input type="range" id="bg-complexity" min="1" max="10" value="5" class="slider">
+                    <label for="bg-colorSeed">Color Seed:</label>
+                    <input type="text" id="bg-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
+                    <div class="trait-preview-container"></div>
+                </div>
+
+                <!-- Body Category -->
+                <div class="trait-category">
+                    <h3>Body</h3>
+                    <label for="body-numTraits">Number of Traits: <span class="slider-value" id="body-numTraits-value">20</span></label>
+                    <input type="range" id="body-numTraits" min="13" max="50" value="20" class="slider">
+                    <label for="body-complexity">Complexity: <span class="slider-value" id="body-complexity-value">5</span></label>
+                    <input type="range" id="body-complexity" min="1" max="10" value="5" class="slider">
+                    <label for="body-colorSeed">Color Seed:</label>
+                    <input type="text" id="body-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
+                    <div class="trait-preview-container"></div>
+                </div>
+
+                <!-- Eyes Category -->
+                <div class="trait-category">
+                    <h3>Eyes</h3>
+                    <label for="eyes-numTraits">Number of Traits: <span class="slider-value" id="eyes-numTraits-value">20</span></label>
+                    <input type="range" id="eyes-numTraits" min="13" max="50" value="20" class="slider">
+                    <label for="eyes-complexity">Complexity: <span class="slider-value" id="eyes-complexity-value">5</span></label>
+                    <input type="range" id="eyes-complexity" min="1" max="10" value="5" class="slider">
+                    <label for="eyes-colorSeed">Color Seed:</label>
+                    <input type="text" id="eyes-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
+                    <div class="trait-preview-container"></div>
+                </div>
+
+                <!-- Mouth Category -->
+                <div class="trait-category">
+                    <h3>Mouth</h3>
+                    <label for="mouth-numTraits">Number of Traits: <span class="slider-value" id="mouth-numTraits-value">20</span></label>
+                    <input type="range" id="mouth-numTraits" min="13" max="50" value="20" class="slider">
+                    <label for="mouth-complexity">Complexity: <span class="slider-value" id="mouth-complexity-value">5</span></label>
+                    <input type="range" id="mouth-complexity" min="1" max="10" value="5" class="slider">
+                    <label for="mouth-colorSeed">Color Seed:</label>
+                    <input type="text" id="mouth-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
+                    <div class="trait-preview-container"></div>
+                </div>
+
+                <!-- Hat Category -->
+                <div class="trait-category">
+                    <h3>Hat</h3>
+                    <label for="hat-numTraits">Number of Traits: <span class="slider-value" id="hat-numTraits-value">20</span></label>
+                    <input type="range" id="hat-numTraits" min="13" max="50" value="20" class="slider">
+                    <label for="hat-complexity">Complexity: <span class="slider-value" id="hat-complexity-value">5</span></label>
+                    <input type="range" id="hat-complexity" min="1" max="10" value="5" class="slider">
+                    <label for="hat-colorSeed">Color Seed:</label>
+                    <input type="text" id="hat-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
+                    <div class="trait-preview-container"></div>
+                </div>
+            </div>
+            <div class="generate-traits-btn-container">
+                <button type="button" class="btn-primary" id="generateTraitsBtn">Generate Traits</button>
+            </div>
+        </section>
+
+        <!-- Rarity Configuration Area -->
+        <section class="rarity-config-section" id="rarityConfig">
+            <h2>2. Configure Rarity</h2>
+            <p class="rarity-status" id="rarityStatus">Generate traits first to configure rarity</p>
+            <div class="rarity-controls-container"></div>
+            <div class="rarity-validation-summary" id="rarityValidationSummary"></div>
+            <button type="button" class="btn-secondary" id="resetRarityBtn" style="display:none;">Reset All to Equal Weights</button>
+        </section>
+
+        <!-- Generation Controls -->
+        <section class="generation-section" id="generationControls">
+            <h2>3. Generate Collection</h2>
+            <form class="generation-form">
+                <div class="form-group">
+                    <label for="collectionSize">Collection Size:</label>
+                    <input type="number" id="collectionSize" min="1" max="10000" value="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="collectionName">Collection Name:</label>
+                    <input type="text" id="collectionName" placeholder="My NFT Collection">
+                </div>
+                
+                <canvas id="previewCanvas" width="500" height="500" aria-label="NFT Preview Canvas"></canvas>
+                
+                <button type="button" class="btn-primary" id="generateBtn">Generate Collection</button>
+                
+                <div class="progress-container">
+                    <div class="progress-bar"></div>
+                    <span class="progress-text">0%</span>
+                </div>
+            </form>
+        </section>
+
+        <!-- Output Area -->
+        <section class="output-section" id="outputArea">
+            <h2>Generated Collection</h2>
+            <div class="collection-grid"></div>
+            <button type="button" class="btn-secondary" id="downloadBtn">Download Collection</button>
+        </section>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+</html>

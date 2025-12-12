@@ -1,0 +1,687 @@
+/* CSS Reset and Box Sizing */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* CSS Custom Properties */
+:root {
+    --primary-color: #6366f1;
+    --secondary-color: #8b5cf6;
+    --background: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --success: #10b981;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 2rem;
+    --border-radius: 8px;
+}
+
+/* Base Styles */
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+}
+
+/* App Container */
+.app-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-lg);
+}
+
+/* Header Styling */
+.app-header {
+    text-align: center;
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 2px solid;
+    border-image: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) 1;
+    margin-bottom: var(--spacing-lg);
+}
+
+.app-header h1 {
+    font-size: 2.5rem;
+    margin: 0 0 var(--spacing-sm) 0;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.app-header p {
+    color: var(--text-secondary);
+    margin-top: var(--spacing-sm);
+    font-size: 1.1rem;
+}
+
+/* Section Base Styles */
+section {
+    background-color: var(--surface);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+section h2 {
+    border-left: 4px solid var(--primary-color);
+    padding-left: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    font-size: 1.5rem;
+}
+
+/* Trait Upload Section */
+.trait-categories {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+}
+
+.trait-category {
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    transition: border-color 0.3s ease;
+}
+
+.trait-category:hover {
+    border-color: var(--primary-color);
+}
+
+.trait-category h3 {
+    font-size: 1.2rem;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+
+
+.trait-preview-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+    min-height: 120px;
+    padding: var(--spacing-sm);
+    border: 1px dashed var(--border);
+    border-radius: var(--border-radius);
+    align-items: start;
+}
+
+.trait-preview-container img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: calc(var(--border-radius) / 2);
+    border: 2px solid var(--border);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.trait-preview-container img:hover {
+    border-color: var(--primary-color);
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
+}
+
+.file-count {
+    display: none;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: var(--spacing-sm);
+}
+
+.file-count.visible {
+    display: inline-block;
+}
+
+/* Slider Controls */
+.trait-category .slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 5px;
+    background: var(--background);
+    outline: none;
+    margin: var(--spacing-sm) 0;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.trait-category .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.trait-category .slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.trait-category .slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    cursor: pointer;
+    border: none;
+    transition: transform 0.2s ease;
+}
+
+.trait-category .slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+}
+
+.trait-category .slider:focus {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.trait-category label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-sm);
+    font-weight: 500;
+}
+
+.slider-value {
+    color: var(--primary-color);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.color-seed-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--background);
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    margin-top: var(--spacing-sm);
+    transition: border-color 0.3s ease;
+}
+
+.color-seed-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.generate-traits-btn-container {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border);
+}
+
+#generateTraitsBtn {
+    min-width: 250px;
+    font-size: 1.1rem;
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+/* Rarity Configuration Section */
+.rarity-controls-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.rarity-status {
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-bottom: var(--spacing-md);
+}
+
+/* Rarity Category Containers */
+.rarity-category {
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    background-color: var(--background);
+}
+
+.rarity-category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border);
+}
+
+.rarity-category-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.validation-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: var(--border-radius);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.validation-badge.valid {
+    background-color: var(--success);
+    color: white;
+}
+
+.validation-badge.invalid {
+    background-color: #ef4444;
+    color: white;
+}
+
+/* Rarity Trait Items */
+.rarity-trait-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    border-radius: var(--border-radius);
+    transition: background-color 0.3s ease;
+}
+
+.rarity-trait-item:hover {
+    background-color: rgba(99, 102, 241, 0.05);
+}
+
+.rarity-trait-thumbnail {
+    width: 60px;
+    height: 60px;
+    border-radius: calc(var(--border-radius) / 2);
+    border: 2px solid var(--border);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.rarity-trait-label {
+    min-width: 80px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.rarity-slider-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-grow: 1;
+}
+
+/* Rarity Sliders */
+.rarity-slider {
+    flex-grow: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--background);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: box-shadow 0.3s ease;
+}
+
+.rarity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.rarity-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+.rarity-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+    cursor: pointer;
+    border: none;
+    transition: transform 0.2s ease;
+}
+
+.rarity-slider::-moz-range-thumb:hover {
+    transform: scale(1.1);
+}
+
+.rarity-slider:focus {
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.rarity-percentage {
+    min-width: 50px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+/* Rarity Tier Badges */
+.rarity-tier {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    min-width: 70px;
+    text-align: center;
+}
+
+.rarity-tier.legendary {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    color: white;
+}
+
+.rarity-tier.epic {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.rarity-tier.rare {
+    background-color: var(--success);
+    color: white;
+}
+
+.rarity-tier.common {
+    background-color: #6b7280;
+    color: white;
+}
+
+/* Validation Summary */
+.rarity-validation-summary {
+    text-align: center;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-md);
+    font-weight: 600;
+    display: none;
+}
+
+.rarity-validation-summary.success {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+    border: 1px solid var(--success);
+    display: block;
+}
+
+.rarity-validation-summary.warning {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    display: block;
+}
+
+#resetRarityBtn {
+    display: block;
+    margin: var(--spacing-lg) auto 0;
+}
+
+/* Generation Section */
+.generation-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.form-group input {
+    width: 100%;
+    padding: var(--spacing-md);
+    background-color: var(--background);
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+#previewCanvas {
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius);
+    margin: var(--spacing-lg) auto;
+    display: block;
+    background-image: 
+        linear-gradient(45deg, #25293c 25%, transparent 25%), 
+        linear-gradient(-45deg, #25293c 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #25293c 75%), 
+        linear-gradient(-45deg, transparent 75%, #25293c 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
+/* Button Styles */
+.btn-primary,
+.btn-secondary {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--border-radius);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+}
+
+.btn-secondary:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+/* Progress Bar */
+.progress-container {
+    display: none;
+    margin-top: var(--spacing-lg);
+    background-color: var(--background);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    height: 30px;
+    position: relative;
+}
+
+.progress-container.active {
+    display: block;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    transition: width 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0%;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+/* Output Section */
+.output-section {
+    display: none;
+}
+
+.output-section.visible {
+    display: block;
+}
+
+.collection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.collection-grid > * {
+    aspect-ratio: 1 / 1;
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.collection-grid > *:hover {
+    transform: scale(1.05);
+}
+
+/* Responsive Design - Tablet */
+@media (max-width: 768px) {
+    .trait-categories {
+        grid-template-columns: 1fr;
+    }
+    
+    .rarity-controls-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .app-header h1 {
+        font-size: 2rem;
+    }
+    
+    .app-container {
+        padding: var(--spacing-md);
+    }
+    
+    section {
+        padding: var(--spacing-md);
+    }
+}
+
+/* Responsive Design - Mobile */
+@media (max-width: 480px) {
+    .app-header h1 {
+        font-size: 1.8rem;
+    }
+    
+    section h2 {
+        font-size: 1.3rem;
+    }
+    
+    .app-container {
+        padding: var(--spacing-sm);
+    }
+    
+    section {
+        padding: var(--spacing-sm);
+    }
+    
+    .trait-category .slider {
+        height: 10px;
+    }
+    
+    .trait-category .slider::-webkit-slider-thumb,
+    .trait-category .slider::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .trait-preview-container {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        gap: var(--spacing-sm);
+    }
+    
+    .trait-preview-container img {
+        height: 60px;
+    }
+    
+    .rarity-trait-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+    
+    .rarity-trait-thumbnail {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .rarity-slider-container {
+        width: 100%;
+    }
+    
+    #previewCanvas {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    .generation-form {
+        gap: var(--spacing-md);
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        min-height: 44px;
+        padding: var(--spacing-md);
+    }
+}
