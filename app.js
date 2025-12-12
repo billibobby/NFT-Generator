@@ -39,11 +39,41 @@ const LAYER_ORDER = {
 
 // Configuration cache for current slider and input values
 const configCache = {
-    background: { numTraits: 20, complexity: 5, colorSeed: '' },
-    body: { numTraits: 20, complexity: 5, colorSeed: '' },
-    eyes: { numTraits: 20, complexity: 5, colorSeed: '' },
-    mouth: { numTraits: 20, complexity: 5, colorSeed: '' },
-    hat: { numTraits: 20, complexity: 5, colorSeed: '' },
+    background: { 
+        numTraits: 20, 
+        complexity: 5, 
+        colorSeed: '',
+        generationMode: 'procedural', // NEW: 'procedural', 'ai', or 'hybrid'
+        aiOptions: { provider: 'auto', size: '512x512', quality: 'standard', aspectRatio: '1:1', hybridOverlayOpacity: 0.4 } // NEW
+    },
+    body: { 
+        numTraits: 20, 
+        complexity: 5, 
+        colorSeed: '',
+        generationMode: 'procedural', // NEW
+        aiOptions: { provider: 'auto', size: '512x512', quality: 'standard', aspectRatio: '1:1', hybridOverlayOpacity: 0.4 } // NEW
+    },
+    eyes: { 
+        numTraits: 20, 
+        complexity: 5, 
+        colorSeed: '',
+        generationMode: 'procedural', // NEW
+        aiOptions: { provider: 'auto', size: '512x512', quality: 'standard', aspectRatio: '1:1', hybridOverlayOpacity: 0.4 } // NEW
+    },
+    mouth: { 
+        numTraits: 20, 
+        complexity: 5, 
+        colorSeed: '',
+        generationMode: 'procedural', // NEW
+        aiOptions: { provider: 'auto', size: '512x512', quality: 'standard', aspectRatio: '1:1', hybridOverlayOpacity: 0.4 } // NEW
+    },
+    hat: { 
+        numTraits: 20, 
+        complexity: 5, 
+        colorSeed: '',
+        generationMode: 'procedural', // NEW
+        aiOptions: { provider: 'auto', size: '512x512', quality: 'standard', aspectRatio: '1:1', hybridOverlayOpacity: 0.4 } // NEW
+    },
     
     // Global style configuration
     globalStyle: {
@@ -56,6 +86,7 @@ const configCache = {
         useMasterSeed: false,
         masterSeed: null,
         consistencyLevel: 'medium',
+        useAIGeneration: false, // NEW: global toggle for AI generation
         
         // Per-category style overrides
         categoryStyles: {
@@ -450,6 +481,221 @@ class StyleEngine {
     }
 }
 
+// ===== AI GENERATION COORDINATOR =====
+
+class AIGenerationCoordinator {
+    constructor() {
+        this.cache = new Map(); // Key: `${category}_${complexity}_${colorSeed}_${index}`
+        this.cacheEnabled = true;
+        this.maxCacheSize = 500;
+        this.maxRetries = 3;
+        this.isGenerating = false;
+        this.currentBatch = null;
+    }
+    
+    getCacheKey(category, complexity, colorSeed, index) {
+        return `${category}_${complexity}_${colorSeed}_${index}`;
+    }
+    
+    async generateSingleAITrait(category, complexity, colorSeed, index) {
+        const cacheKey = this.getCacheKey(category, complexity, colorSeed, index);
+        
+        // Check cache first
+        if (this.cacheEnabled && this.cache.has(cacheKey)) {
+            console.log(`Cache hit for ${cacheKey}`);
+            return this.cache.get(cacheKey);
+        }
+        
+        let lastError = null;
+        
+        // Retry logic
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+            try {
+                // Build AI prompt using style engine
+                const prompt = this.buildAIPromptForTrait(category, complexity, colorSeed, index);
+                const negativePrompt = styleEngine.buildNegativePrompt(category);
+                
+                // Get AI options for category
+                const aiOptions = configCache[category].aiOptions;
+                const options = {
+                    size: aiOptions.size,
+                    quality: aiOptions.quality,
+                    aspectRatio: aiOptions.aspectRatio,
+                    negativePrompt: negativePrompt
+                };
+                
+                // Generate image via API manager
+                const result = await apiManager.generateImage(prompt, options);
+                
+                // Cache the result
+                this.cache.set(cacheKey, result);
+                this.manageCacheSize();
+                
+                return result;
+                
+            } catch (error) {
+                lastError = error;
+                console.warn(`AI generation attempt ${attempt} failed for ${category}[${index}]:`, error.message);
+                
+                if (attempt === this.maxRetries) {
+                    // Final attempt failed, handle error
+                    return this.handleAIGenerationError(error, category, index);
+                }
+                
+                // Wait before retry (exponential backoff)
+                await this.delay(1000 * Math.pow(2, attempt - 1));
+            }
+        }
+        
+        // Should not reach here, but fallback
+        return this.handleAIGenerationError(lastError, category, index);
+    }
+    
+    buildAIPromptForTrait(category, complexity, colorSeed, index) {
+        // Use existing parseColorSeed to get color information
+        const baseColor = parseColorSeed(colorSeed, category, index);
+        const colors = styleEngine.getCurrentColorPalette();
+        
+        // Build base prompt based on category and complexity
+        let basePrompt = '';
+        switch (category) {
+            case 'background':
+                basePrompt = `A detailed ${complexity > 7 ? 'complex' : complexity > 4 ? 'moderate' : 'simple'} background`;
+                break;
+            case 'body':
+                basePrompt = `A ${complexity > 7 ? 'highly detailed' : complexity > 4 ? 'detailed' : 'simple'} character body`;
+                break;
+            case 'eyes':
+                basePrompt = `${complexity > 7 ? 'Intricate' : complexity > 4 ? 'Detailed' : 'Simple'} eyes`;
+                break;
+            case 'mouth':
+                basePrompt = `A ${complexity > 7 ? 'expressive' : complexity > 4 ? 'detailed' : 'simple'} mouth`;
+                break;
+            case 'hat':
+                basePrompt = `A ${complexity > 7 ? 'ornate' : complexity > 4 ? 'decorative' : 'simple'} hat`;
+                break;
+            default:
+                basePrompt = `A ${category} trait`;
+        }
+        
+        // Use style engine to build the complete prompt
+        return styleEngine.buildPrompt(category, basePrompt, { colors });
+    }
+    
+    async generateAITraitBatch(category, count, config) {
+        this.isGenerating = true;
+        this.currentBatch = { category, count, completed: 0, failed: 0 };
+        
+        // Emit batch started event
+        this.emitProgressEvent(0, count, category, 'started');
+        
+        const results = [];
+        
+        for (let i = 0; i < count; i++) {
+            try {
+                const result = await this.generateSingleAITrait(
+                    category, 
+                    config.complexity, 
+                    config.colorSeed, 
+                    i
+                );
+                
+                results.push(result);
+                this.currentBatch.completed++;
+                
+                // Emit progress event
+                this.emitProgressEvent(this.currentBatch.completed, count, category, 'progress');
+                
+            } catch (error) {
+                console.error(`Failed to generate AI trait ${category}[${i}]:`, error);
+                this.currentBatch.failed++;
+                
+                // Emit error event
+                window.dispatchEvent(new CustomEvent('aiGenerationError', {
+                    detail: { category, index: i, error: error.message }
+                }));
+                
+                // Add null result to maintain array indexing
+                results.push(null);
+            }
+        }
+        
+        this.isGenerating = false;
+        
+        // Emit batch complete event
+        window.dispatchEvent(new CustomEvent('aiGenerationComplete', {
+            detail: { 
+                category, 
+                successCount: this.currentBatch.completed, 
+                failureCount: this.currentBatch.failed,
+                results 
+            }
+        }));
+        
+        return results;
+    }
+    
+    handleAIGenerationError(error, category, index) {
+        console.warn(`AI generation failed for ${category}[${index}], falling back to procedural`);
+        
+        // Emit fallback event
+        window.dispatchEvent(new CustomEvent('aiGenerationFallback', {
+            detail: { category, index, error: error.message }
+        }));
+        
+        // Fallback to procedural generation
+        try {
+            return generateTraitImage(category, configCache[category].complexity, configCache[category].colorSeed, index);
+        } catch (proceduralError) {
+            console.error(`Procedural fallback also failed for ${category}[${index}]:`, proceduralError);
+            throw new Error(`Both AI and procedural generation failed: ${error.message}`);
+        }
+    }
+    
+    emitProgressEvent(current, total, category, status = 'progress') {
+        const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+        
+        window.dispatchEvent(new CustomEvent('aiGenerationProgress', {
+            detail: { 
+                category, 
+                current, 
+                total, 
+                percentage,
+                status
+            }
+        }));
+    }
+    
+    manageCacheSize() {
+        if (this.cache.size > this.maxCacheSize) {
+            // Simple LRU: remove oldest entries
+            const keysToRemove = Array.from(this.cache.keys()).slice(0, this.cache.size - this.maxCacheSize + 50);
+            keysToRemove.forEach(key => this.cache.delete(key));
+        }
+    }
+    
+    clearCache() {
+        this.cache.clear();
+        console.log('AI generation cache cleared');
+    }
+    
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    getStatus() {
+        return {
+            isGenerating: this.isGenerating,
+            currentBatch: this.currentBatch,
+            cacheSize: this.cache.size,
+            cacheEnabled: this.cacheEnabled
+        };
+    }
+}
+
+// Create global AI coordinator instance
+const aiCoordinator = new AIGenerationCoordinator();
+
 // ===== INITIALIZATION =====
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -465,6 +711,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Initialize style engine
     initializeStyleEngine();
+    
+    // Initialize AI Generation Coordinator
+    window.aiCoordinator = aiCoordinator;
+    
+    // Set up event listeners for generation mode changes
+    setupGenerationModeListeners();
+    
+    // Load saved configuration
+    loadConfiguration();
     
     console.log('NFT Generator initialized successfully');
 });
@@ -1116,6 +1371,38 @@ function resetRarityToEqual() {
 // ===== PROCEDURAL TRAIT GENERATION ENGINE =====
 
 function generateTraitImage(category, complexity, colorSeed, index) {
+    // Check generation mode and route accordingly
+    const generationMode = configCache[category].generationMode;
+    
+    // For AI and Hybrid modes, return a promise wrapper for backward compatibility
+    if (generationMode === 'ai' || generationMode === 'hybrid') {
+        // Return a promise that resolves to the image data URL
+        return generateTraitImageAsync(category, complexity, colorSeed, index);
+    }
+    
+    // Procedural mode (existing synchronous logic)
+    return generateProceduralTrait(category, complexity, colorSeed, index);
+}
+
+async function generateTraitImageAsync(category, complexity, colorSeed, index) {
+    const generationMode = configCache[category].generationMode;
+    
+    try {
+        if (generationMode === 'ai') {
+            // Pure AI generation
+            return await aiCoordinator.generateSingleAITrait(category, complexity, colorSeed, index);
+        } else if (generationMode === 'hybrid') {
+            // Hybrid: AI base + procedural overlay
+            const aiBaseDataURL = await aiCoordinator.generateSingleAITrait(category, complexity, colorSeed, index);
+            return await applyProceduralOverlay(aiBaseDataURL, category, complexity, colorSeed, index);
+        }
+    } catch (error) {
+        console.warn(`Async generation failed for ${category}[${index}], falling back to procedural:`, error);
+        return generateProceduralTrait(category, complexity, colorSeed, index);
+    }
+}
+
+function generateProceduralTrait(category, complexity, colorSeed, index) {
     try {
         // Create off-screen canvas
         const canvas = document.createElement('canvas');
@@ -1155,8 +1442,77 @@ function generateTraitImage(category, complexity, colorSeed, index) {
         
         return canvas.toDataURL('image/png');
     } catch (error) {
-        console.error(`Error generating trait for ${category}:`, error);
+        console.error(`Error generating procedural trait for ${category}:`, error);
         return null;
+    }
+}
+
+async function applyProceduralOverlay(aiBaseDataURL, category, complexity, colorSeed, index) {
+    try {
+        // Create canvas for compositing
+        const canvas = document.createElement('canvas');
+        canvas.width = 500;
+        canvas.height = 500;
+        const ctx = canvas.getContext('2d');
+        
+        // Load AI base image
+        const baseImage = new Image();
+        await new Promise((resolve, reject) => {
+            baseImage.onload = resolve;
+            baseImage.onerror = reject;
+            baseImage.src = aiBaseDataURL;
+        });
+        
+        // Draw AI base image
+        ctx.drawImage(baseImage, 0, 0, 500, 500);
+        
+        // Create overlay canvas
+        const overlayCanvas = document.createElement('canvas');
+        overlayCanvas.width = 500;
+        overlayCanvas.height = 500;
+        const overlayCtx = overlayCanvas.getContext('2d');
+        
+        // Generate procedural overlay
+        const baseColor = parseColorSeed(colorSeed, category, index);
+        const seed = seedManager.useMasterSeed ? 
+            seedManager.getCategorySeed(category) + index :
+            (baseColor.h + baseColor.s + baseColor.l + index) * 1000;
+        
+        // Generate procedural overlay based on category
+        switch (category) {
+            case 'background':
+                generateBackgroundTrait(overlayCtx, Math.max(1, complexity - 2), baseColor, seed);
+                break;
+            case 'body':
+                generateBodyTrait(overlayCtx, Math.max(1, complexity - 2), baseColor, seed);
+                break;
+            case 'eyes':
+                generateEyesTrait(overlayCtx, Math.max(1, complexity - 2), baseColor, seed);
+                break;
+            case 'mouth':
+                generateMouthTrait(overlayCtx, Math.max(1, complexity - 2), baseColor, seed);
+                break;
+            case 'hat':
+                generateHatTrait(overlayCtx, Math.max(1, complexity - 2), baseColor, seed);
+                break;
+        }
+        
+        // Apply overlay with reduced opacity
+        const overlayOpacity = configCache[category].aiOptions.hybridOverlayOpacity || 0.4;
+        ctx.globalAlpha = overlayOpacity;
+        ctx.globalCompositeOperation = 'overlay';
+        ctx.drawImage(overlayCanvas, 0, 0);
+        
+        // Reset composite operation
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = 'source-over';
+        
+        return canvas.toDataURL('image/png');
+        
+    } catch (error) {
+        console.error(`Error applying procedural overlay for ${category}:`, error);
+        // Return original AI image if overlay fails
+        return aiBaseDataURL;
     }
 }
 
@@ -1431,8 +1787,8 @@ function generateHatTrait(ctx, complexity, baseColor, seed) {
 
 // ===== TRAIT GENERATION AND MANAGEMENT =====
 
-function generateAllTraits() {
-    const categories = Object.keys(configCache);
+async function generateAllTraits() {
+    const categories = Object.keys(configCache).filter(key => key !== 'globalStyle');
     let totalTraits = 0;
     let generatedTraits = 0;
     
@@ -1447,13 +1803,73 @@ function generateAllTraits() {
         rarityState[category] = [];
     });
     
-    // Generate traits for each category
-    categories.forEach(category => {
+    // Clear AI generation cache
+    aiCoordinator.clearCache();
+    
+    // Generate traits for each category (mixed mode support)
+    for (const category of categories) {
         const config = configCache[category];
+        
+        if (config.generationMode === 'procedural') {
+            // Synchronous procedural generation
+            await generateProceduralTraits(category, config);
+        } else {
+            // Async AI/Hybrid generation
+            await generateAITraits(category, config);
+        }
+    }
+    
+    // Populate rarity controls after all traits are generated
+    populateRarityControls();
+    
+    // Scroll to rarity section
+    setTimeout(() => {
+        document.getElementById('rarityConfig').scrollIntoView({behavior: 'smooth'});
+    }, 500);
+    
+    console.log(`Generated ${generatedTraits} traits across ${categories.length} categories`);
+}
+
+async function generateProceduralTraits(category, config) {
+    const traits = [];
+    
+    for (let i = 0; i < config.numTraits; i++) {
+        const dataURL = generateProceduralTrait(category, config.complexity, config.colorSeed, i);
+        
+        if (dataURL) {
+            const trait = {
+                id: generateUniqueId(),
+                category: category,
+                dataURL: dataURL,
+                complexity: config.complexity,
+                colorSeed: config.colorSeed,
+                metadata: {
+                    generatedAt: new Date().toISOString(),
+                    index: i,
+                    layerOrder: getLayerOrder(category),
+                    generationMode: 'procedural'
+                }
+            };
+            
+            traits.push(trait);
+        }
+    }
+    
+    globalState[category] = traits;
+    displayTraits(category, traits);
+    initializeRarityState(category);
+}
+
+async function generateAITraits(category, config) {
+    // Update UI to show AI generation in progress
+    updateGenerationProgress(category, 0, config.numTraits, 'starting');
+    
+    try {
+        const results = await aiCoordinator.generateAITraitBatch(category, config.numTraits, config);
         const traits = [];
         
-        for (let i = 0; i < config.numTraits; i++) {
-            const dataURL = generateTraitImage(category, config.complexity, config.colorSeed, i);
+        for (let i = 0; i < results.length; i++) {
+            const dataURL = results[i];
             
             if (dataURL) {
                 const trait = {
@@ -1465,32 +1881,63 @@ function generateAllTraits() {
                     metadata: {
                         generatedAt: new Date().toISOString(),
                         index: i,
-                        layerOrder: getLayerOrder(category)
+                        layerOrder: getLayerOrder(category),
+                        generationMode: config.generationMode,
+                        aiProvider: apiManager.getActiveProviderName()
                     }
                 };
                 
                 traits.push(trait);
             }
-            
-            generatedTraits++;
         }
         
         globalState[category] = traits;
         displayTraits(category, traits);
-        
-        // Initialize rarity state for this category
         initializeRarityState(category);
-    });
+        
+        updateGenerationProgress(category, config.numTraits, config.numTraits, 'completed');
+        
+    } catch (error) {
+        console.error(`AI generation failed for ${category}:`, error);
+        
+        // Fallback to procedural generation
+        console.log(`Falling back to procedural generation for ${category}`);
+        configCache[category].generationMode = 'procedural';
+        await generateProceduralTraits(category, config);
+        
+        // Show user notification
+        window.dispatchEvent(new CustomEvent('aiGenerationFallback', {
+            detail: { category, error: error.message }
+        }));
+    }
+}
+
+function updateGenerationProgress(category, current, total, status) {
+    const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
     
-    // Populate rarity controls after all traits are generated
-    populateRarityControls();
+    // Update button text
+    if (domRefs.generateBtn) {
+        switch (status) {
+            case 'starting':
+                domRefs.generateBtn.textContent = `Generating... (${category}: Starting)`;
+                break;
+            case 'progress':
+                domRefs.generateBtn.textContent = `Generating... (${category}: ${current}/${total})`;
+                break;
+            case 'completed':
+                domRefs.generateBtn.textContent = `Generating... (${category}: Complete)`;
+                break;
+        }
+    }
     
-    // Scroll to rarity section
-    setTimeout(() => {
-        document.getElementById('rarityConfig').scrollIntoView({behavior: 'smooth'});
-    }, 500);
+    // Update progress bar if available
+    const progressBar = document.querySelector('.progress-bar');
+    const progressText = document.querySelector('.progress-text');
     
-    console.log(`Generated ${generatedTraits} traits across ${categories.length} categories`);
+    if (progressBar && progressText) {
+        progressBar.style.width = `${percentage}%`;
+        progressText.textContent = `${percentage}%`;
+    }
 }
 
 function displayTraits(category, traitsArray) {
@@ -1532,19 +1979,39 @@ function initializeGenerateButton() {
             if (!confirmed) return;
         }
         
+        // Check if AI generation is enabled and API providers are available
+        const hasAICategories = Object.keys(configCache)
+            .filter(key => key !== 'globalStyle')
+            .some(category => configCache[category].generationMode !== 'procedural');
+        
+        if (hasAICategories && configCache.globalStyle.useAIGeneration) {
+            const availableProviders = apiManager.getProviderStatus().filter(p => p.isHealthy);
+            if (availableProviders.length === 0) {
+                const fallbackConfirmed = confirm(
+                    'No healthy AI providers available. All categories will use procedural generation. Continue?'
+                );
+                if (!fallbackConfirmed) return;
+                
+                // Temporarily set all categories to procedural
+                Object.keys(configCache).forEach(category => {
+                    if (category !== 'globalStyle') {
+                        configCache[category].generationMode = 'procedural';
+                    }
+                });
+            }
+        }
+        
         // Disable button and show loading state
         domRefs.generateBtn.disabled = true;
         domRefs.generateBtn.textContent = 'Generating Traits...';
         
         try {
-            // Use setTimeout to allow UI to update before heavy computation
-            setTimeout(() => {
-                generateAllTraits();
-                
-                // Re-enable button and update text
-                domRefs.generateBtn.disabled = false;
-                domRefs.generateBtn.textContent = 'Regenerate Traits';
-            }, 100);
+            // Call async generateAllTraits
+            await generateAllTraits();
+            
+            // Re-enable button and update text
+            domRefs.generateBtn.disabled = false;
+            domRefs.generateBtn.textContent = 'Regenerate Traits';
             
         } catch (error) {
             console.error('Error generating traits:', error);
@@ -2166,6 +2633,157 @@ function updateProviderStatusUI(validationResults) {
         detail: validationResults
     }));
 }
+
+// ===== GENERATION MODE EVENT LISTENERS =====
+
+function setupGenerationModeListeners() {
+    // Listen for AI generation progress events
+    window.addEventListener('aiGenerationProgress', (event) => {
+        const { category, current, total, percentage, status } = event.detail;
+        updateGenerationProgress(category, current, total, status);
+    });
+    
+    // Listen for AI generation completion events
+    window.addEventListener('aiGenerationComplete', (event) => {
+        const { category, successCount, failureCount } = event.detail;
+        console.log(`AI generation complete for ${category}: ${successCount} success, ${failureCount} failures`);
+    });
+    
+    // Listen for AI generation errors
+    window.addEventListener('aiGenerationError', (event) => {
+        const { category, index, error } = event.detail;
+        console.warn(`AI generation error for ${category}[${index}]: ${error}`);
+    });
+    
+    // Listen for AI generation fallbacks
+    window.addEventListener('aiGenerationFallback', (event) => {
+        const { category, index, error } = event.detail;
+        console.log(`AI generation fallback for ${category}${index !== undefined ? `[${index}]` : ''}: ${error}`);
+        
+        // Show user notification (placeholder for Phase 4)
+        if (index === undefined) {
+            // Category-level fallback
+            console.log(`Entire category ${category} fell back to procedural generation`);
+        }
+    });
+    
+    // Listen for generation mode changes
+    window.addEventListener('generationModeChanged', (event) => {
+        const { category, mode } = event.detail;
+        configCache[category].generationMode = mode;
+        saveConfiguration();
+        console.log(`Generation mode changed for ${category}: ${mode}`);
+    });
+}
+
+// ===== CONFIGURATION PERSISTENCE =====
+
+function saveConfiguration() {
+    try {
+        const config = {
+            categories: {},
+            globalStyle: configCache.globalStyle
+        };
+        
+        Object.keys(configCache).forEach(category => {
+            if (category !== 'globalStyle') {
+                config.categories[category] = {
+                    numTraits: configCache[category].numTraits,
+                    complexity: configCache[category].complexity,
+                    colorSeed: configCache[category].colorSeed,
+                    generationMode: configCache[category].generationMode, // NEW
+                    aiOptions: configCache[category].aiOptions // NEW
+                };
+            }
+        });
+        
+        localStorage.setItem('nft_generator_config', JSON.stringify(config));
+        console.log('Configuration saved successfully');
+        
+    } catch (error) {
+        console.error('Failed to save configuration:', error);
+    }
+}
+
+function loadConfiguration() {
+    try {
+        const saved = localStorage.getItem('nft_generator_config');
+        if (!saved) return;
+        
+        const config = JSON.parse(saved);
+        
+        // Load category configurations
+        if (config.categories) {
+            Object.entries(config.categories).forEach(([category, categoryConfig]) => {
+                if (configCache[category]) {
+                    Object.assign(configCache[category], categoryConfig);
+                }
+            });
+        }
+        
+        // Load global style configuration
+        if (config.globalStyle) {
+            Object.assign(configCache.globalStyle, config.globalStyle);
+        }
+        
+        console.log('Configuration loaded successfully');
+        
+    } catch (error) {
+        console.error('Failed to load configuration:', error);
+    }
+}
+
+// ===== UTILITY FUNCTIONS FOR GENERATION MODES =====
+
+function setGenerationMode(category, mode) {
+    if (!configCache[category]) {
+        console.error(`Invalid category: ${category}`);
+        return false;
+    }
+    
+    if (!['procedural', 'ai', 'hybrid'].includes(mode)) {
+        console.error(`Invalid generation mode: ${mode}`);
+        return false;
+    }
+    
+    configCache[category].generationMode = mode;
+    
+    // Emit generation mode changed event
+    window.dispatchEvent(new CustomEvent('generationModeChanged', {
+        detail: { category, mode }
+    }));
+    
+    return true;
+}
+
+function getGenerationMode(category) {
+    return configCache[category]?.generationMode || 'procedural';
+}
+
+function setAIOptions(category, options) {
+    if (!configCache[category]) {
+        console.error(`Invalid category: ${category}`);
+        return false;
+    }
+    
+    Object.assign(configCache[category].aiOptions, options);
+    saveConfiguration();
+    return true;
+}
+
+function getAIOptions(category) {
+    return configCache[category]?.aiOptions || {};
+}
+
+// Export utility functions for external use
+window.NFTGenerator = {
+    ...window.NFTGenerator,
+    setGenerationMode,
+    getGenerationMode,
+    setAIOptions,
+    getAIOptions,
+    aiCoordinator
+};
 
 // ===== STYLE ENGINE INITIALIZATION =====
 
