@@ -9,11 +9,11 @@
 :root {
     --primary-color: #6366f1;
     --secondary-color: #8b5cf6;
-    --background: #0f172a;
-    --surface: #1e293b;
-    --border: #334155;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
+    --background: #ffffff;
+    --surface: #f8f9fa;
+    --border: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
     --success: #10b981;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
