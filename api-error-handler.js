@@ -248,7 +248,7 @@ class APIErrorHandler {
                 'APIKeyInvalidError': 'Visit OpenAI Platform to verify your API key.',
                 'QuotaExceededError': 'Check your usage limits in OpenAI Dashboard.'
             },
-            'stable_diffusion': {
+            'stablediffusion': {
                 'APIKeyInvalidError': 'Visit Stability AI Platform to verify your API key.',
                 'QuotaExceededError': 'Check your credit balance in Stability AI Dashboard.'
             }

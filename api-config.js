@@ -130,7 +130,7 @@ class APIConfigManager {
         
         // Validate providers section
         if (config.providers) {
-            const validProviders = ['gemini', 'openai', 'stable_diffusion'];
+            const validProviders = ['gemini', 'openai', 'stablediffusion'];
             
             Object.keys(config.providers).forEach(providerName => {
                 if (!validProviders.includes(providerName)) {

@@ -96,6 +96,16 @@ const configCache = {
             mouth: { stylePrompt: '', negativePrompt: '' },
             hat: { stylePrompt: '', negativePrompt: '' }
         }
+    },
+
+    // Quality Assurance settings
+    qaSettings: {
+        previewMode: false,
+        previewSamplesPerCategory: 5,
+        autoApprove: false,
+        consistencyThreshold: 60,
+        outlierThreshold: 60,
+        enableRealTimeAnalysis: true
     }
 };
 
@@ -643,9 +653,9 @@ class AIGenerationCoordinator {
             detail: { category, index, error: error.message }
         }));
         
-        // Fallback to procedural generation
+        // Fallback to procedural generation - call generateProceduralTrait directly to prevent recursive AI routing
         try {
-            return generateTraitImage(category, configCache[category].complexity, configCache[category].colorSeed, index);
+            return generateProceduralTrait(category, configCache[category].complexity, configCache[category].colorSeed, index);
         } catch (proceduralError) {
             console.error(`Procedural fallback also failed for ${category}[${index}]:`, proceduralError);
             throw new Error(`Both AI and procedural generation failed: ${error.message}`);
@@ -715,6 +725,25 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Initialize AI Generation Coordinator
     window.aiCoordinator = aiCoordinator;
     
+    // Initialize cost optimization systems
+    await initializeCostOptimizationSystems();
+    
+    // Initialize AI Configuration UI (NEW)
+    initializeAIConfigurationUI();
+    
+    // Initialize Quality Assurance Engine
+    window.qualityAssuranceEngine = new QualityAssuranceEngine();
+    await window.qualityAssuranceEngine.initialize();
+
+    // Load QA settings from localStorage
+    const savedQASettings = localStorage.getItem('qaSettings');
+    if (savedQASettings) {
+        Object.assign(configCache.qaSettings, JSON.parse(savedQASettings));
+    }
+
+    // Initialize QA UI
+    initializeQAUI();
+    
     // Set up event listeners for generation mode changes
     setupGenerationModeListeners();
     
@@ -723,6 +752,344 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     console.log('NFT Generator initialized successfully');
 });
+
+// ===== QUALITY ASSURANCE UI FUNCTIONS =====
+
+function initializeQAUI() {
+    // QA Config Toggle
+    const qaToggle = document.getElementById('qaConfigToggle');
+    if (qaToggle) {
+        qaToggle.addEventListener('click', () => {
+            const content = document.getElementById('qaConfigContent');
+            const isExpanded = content.style.display !== 'none';
+            content.style.display = isExpanded ? 'none' : 'block';
+            qaToggle.textContent = isExpanded ? '▼' : '▲';
+            qaToggle.setAttribute('aria-expanded', !isExpanded);
+        });
+    }
+
+    // Preview Mode Toggle
+    const previewModeToggle = document.getElementById('qaPreviewMode');
+    if (previewModeToggle) {
+        previewModeToggle.checked = configCache.qaSettings.previewMode;
+        previewModeToggle.addEventListener('change', (e) => {
+            configCache.qaSettings.previewMode = e.target.checked;
+            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        });
+    }
+
+    // Samples Per Category Slider
+    const samplesSlider = document.getElementById('qaSamplesPerCategory');
+    if (samplesSlider) {
+        samplesSlider.value = configCache.qaSettings.previewSamplesPerCategory;
+        document.getElementById('qaSamplesValue').textContent = configCache.qaSettings.previewSamplesPerCategory;
+        samplesSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('qaSamplesValue').textContent = value;
+            configCache.qaSettings.previewSamplesPerCategory = value;
+            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        });
+    }
+
+    // Consistency Threshold Slider
+    const consistencySlider = document.getElementById('qaConsistencyThreshold');
+    if (consistencySlider) {
+        consistencySlider.value = configCache.qaSettings.consistencyThreshold;
+        document.getElementById('qaConsistencyValue').textContent = configCache.qaSettings.consistencyThreshold;
+        consistencySlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('qaConsistencyValue').textContent = value;
+            configCache.qaSettings.consistencyThreshold = value;
+            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        });
+    }
+
+    // Outlier Threshold Slider
+    const outlierSlider = document.getElementById('qaOutlierThreshold');
+    if (outlierSlider) {
+        outlierSlider.value = configCache.qaSettings.outlierThreshold;
+        document.getElementById('qaOutlierValue').textContent = configCache.qaSettings.outlierThreshold;
+        outlierSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('qaOutlierValue').textContent = value;
+            configCache.qaSettings.outlierThreshold = value;
+            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        });
+    }
+
+    // Real-time Analysis Toggle
+    const realTimeToggle = document.getElementById('qaRealTimeAnalysis');
+    if (realTimeToggle) {
+        realTimeToggle.checked = configCache.qaSettings.enableRealTimeAnalysis;
+        realTimeToggle.addEventListener('change', (e) => {
+            configCache.qaSettings.enableRealTimeAnalysis = e.target.checked;
+            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        });
+    }
+
+    // Process Regeneration Queue
+    const processQueueBtn = document.getElementById('qaProcessQueueBtn');
+    if (processQueueBtn) {
+        processQueueBtn.addEventListener('click', async () => {
+            const qaEngine = window.qualityAssuranceEngine;
+            showToast('Processing regeneration queue...', 'info');
+            const results = await qaEngine.processRegenerationQueue();
+            showToast(`Regeneration complete: ${results.success} succeeded, ${results.failed} failed`, 'success');
+            updateQueueStatus();
+        });
+    }
+
+    // Clear Regeneration Queue
+    const clearQueueBtn = document.getElementById('qaClearQueueBtn');
+    if (clearQueueBtn) {
+        clearQueueBtn.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to clear the regeneration queue?')) {
+                const qaEngine = window.qualityAssuranceEngine;
+                await qaEngine.clearRegenerationQueue();
+                showToast('Regeneration queue cleared', 'success');
+                updateQueueStatus();
+            }
+        });
+    }
+
+    // Export Quality Report
+    const exportReportBtn = document.getElementById('qaExportReportBtn');
+    if (exportReportBtn) {
+        exportReportBtn.addEventListener('click', async () => {
+            const qaEngine = window.qualityAssuranceEngine;
+            const report = await qaEngine.generateQualityReport();
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `quality-report-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Quality report exported', 'success');
+        });
+    }
+
+    // Listen for QA events
+    window.addEventListener('qa:outlierDetected', (event) => {
+        const { category, index, scores } = event.detail;
+        showToast(`Outlier detected in ${category} (index ${index}): Score ${Math.round(scores.overall)}`, 'warning');
+        updateQueueStatus();
+    });
+
+    // Initial queue status update
+    setTimeout(updateQueueStatus, 1000);
+}
+
+async function updateQueueStatus() {
+    if (!window.qualityAssuranceEngine) return;
+    
+    try {
+        const qaEngine = window.qualityAssuranceEngine;
+        const queue = await qaEngine.getRegenerationQueue();
+        const pending = queue.filter(item => item.status === 'pending').length;
+        const processing = queue.filter(item => item.status === 'processing').length;
+        const completed = queue.filter(item => item.status === 'completed').length;
+
+        const pendingEl = document.getElementById('qaPendingCount');
+        const processingEl = document.getElementById('qaProcessingCount');
+        const completedEl = document.getElementById('qaCompletedCount');
+
+        if (pendingEl) pendingEl.textContent = pending;
+        if (processingEl) processingEl.textContent = processing;
+        if (completedEl) completedEl.textContent = completed;
+    } catch (error) {
+        console.error('Failed to update queue status:', error);
+    }
+}
+
+function showPreviewModal(previewResults, callback) {
+    const modal = document.getElementById('qaPreviewModal');
+    const gridContainer = document.getElementById('previewGridContainer');
+    const categoryTabs = document.getElementById('previewCategoryTabs');
+    const scoresContainer = document.getElementById('consistencyScores');
+
+    // Clear previous content
+    gridContainer.innerHTML = '';
+    categoryTabs.innerHTML = '';
+    scoresContainer.innerHTML = '';
+
+    // Calculate summary stats
+    let totalSamples = 0;
+    let totalScore = 0;
+    let outlierCount = 0;
+    const categories = Object.keys(previewResults);
+
+    // Create category tabs
+    categories.forEach((category, index) => {
+        const button = document.createElement('button');
+        button.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+        button.className = index === 0 ? 'active' : '';
+        button.setAttribute('role', 'tab');
+        button.onclick = () => switchPreviewCategory(category);
+        categoryTabs.appendChild(button);
+    });
+
+    // Populate grids for each category
+    categories.forEach((category, index) => {
+        const data = previewResults[category];
+        const categoryGrid = document.createElement('div');
+        categoryGrid.className = 'preview-category-grid';
+        categoryGrid.id = `preview-${category}`;
+        categoryGrid.style.display = index === 0 ? 'grid' : 'none';
+
+        data.samples.forEach((sample, sampleIndex) => {
+            const item = document.createElement('div');
+            item.className = 'preview-grid-item';
+            if (data.scores.outliers.includes(sampleIndex)) {
+                item.classList.add('outlier');
+                outlierCount++;
+            }
+
+            const img = document.createElement('img');
+            img.src = sample.imageData;
+            img.alt = `${category} sample ${sampleIndex}`;
+
+            const badge = document.createElement('div');
+            badge.className = 'preview-score-badge';
+            badge.textContent = Math.round(data.scores.overall || 0);
+
+            item.appendChild(img);
+            item.appendChild(badge);
+            categoryGrid.appendChild(item);
+
+            totalSamples++;
+            totalScore += data.scores.overall || 0;
+        });
+
+        gridContainer.appendChild(categoryGrid);
+
+        // Create score card
+        const scoreCard = document.createElement('div');
+        scoreCard.className = 'consistency-score-card';
+        scoreCard.innerHTML = `
+            <h4>${category.charAt(0).toUpperCase() + category.slice(1)}</h4>
+            <div class="score-value">${Math.round(data.scores.overall)}</div>
+            <div class="score-breakdown-mini">
+                <span>Color: ${Math.round(data.scores.breakdown.color)}</span>
+                <span>Edge: ${Math.round(data.scores.breakdown.edge)}</span>
+                <span>Brightness: ${Math.round(data.scores.breakdown.brightness)}</span>
+            </div>
+        `;
+        scoresContainer.appendChild(scoreCard);
+    });
+
+    // Update summary stats
+    const totalSamplesEl = document.getElementById('previewTotalSamples');
+    const avgScoreEl = document.getElementById('previewAvgScore');
+    const outlierCountEl = document.getElementById('previewOutlierCount');
+
+    if (totalSamplesEl) totalSamplesEl.textContent = totalSamples;
+    if (avgScoreEl) avgScoreEl.textContent = Math.round(totalScore / Math.max(1, totalSamples));
+    if (outlierCountEl) outlierCountEl.textContent = outlierCount;
+
+    // Show modal
+    modal.style.display = 'flex';
+
+    // Event listeners
+    const approveBtn = document.getElementById('qaPreviewApproveBtn');
+    const rejectBtn = document.getElementById('qaPreviewRejectBtn');
+    const closeBtn = document.getElementById('qaPreviewCloseBtn');
+
+    const handleApprove = () => {
+        modal.style.display = 'none';
+        callback(true);
+        cleanup();
+    };
+
+    const handleReject = () => {
+        modal.style.display = 'none';
+        callback(false);
+        cleanup();
+    };
+
+    const handleClose = () => {
+        modal.style.display = 'none';
+        callback(false);
+        cleanup();
+    };
+
+    const cleanup = () => {
+        if (approveBtn) approveBtn.removeEventListener('click', handleApprove);
+        if (rejectBtn) rejectBtn.removeEventListener('click', handleReject);
+        if (closeBtn) closeBtn.removeEventListener('click', handleClose);
+    };
+
+    if (approveBtn) approveBtn.addEventListener('click', handleApprove);
+    if (rejectBtn) rejectBtn.addEventListener('click', handleReject);
+    if (closeBtn) closeBtn.addEventListener('click', handleClose);
+}
+
+function switchPreviewCategory(category) {
+    // Hide all grids
+    document.querySelectorAll('.preview-category-grid').forEach(grid => {
+        grid.style.display = 'none';
+    });
+
+    // Show selected grid
+    const targetGrid = document.getElementById(`preview-${category}`);
+    if (targetGrid) {
+        targetGrid.style.display = 'grid';
+    }
+
+    // Update active tab
+    document.querySelectorAll('.preview-category-tabs button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Find and activate the clicked tab
+    const tabs = document.querySelectorAll('.preview-category-tabs button');
+    tabs.forEach(tab => {
+        if (tab.textContent.toLowerCase() === category) {
+            tab.classList.add('active');
+        }
+    });
+}
+
+function showToast(message, type = 'info') {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        z-index: 1001;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease-out;
+    `;
+
+    if (type === 'success') {
+        toast.style.borderColor = '#10b981';
+        toast.style.background = '#065f46';
+    } else if (type === 'warning') {
+        toast.style.borderColor = '#f59e0b';
+        toast.style.background = '#92400e';
+    } else if (type === 'error') {
+        toast.style.borderColor = '#ef4444';
+        toast.style.background = '#991b1b';
+    }
+
+    document.body.appendChild(toast);
+
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 4000);
+}
 
 function initializeDOMReferences() {
     const categories = ['bg', 'body', 'eyes', 'mouth', 'hat'];
@@ -1370,36 +1737,72 @@ function resetRarityToEqual() {
 
 // ===== PROCEDURAL TRAIT GENERATION ENGINE =====
 
-function generateTraitImage(category, complexity, colorSeed, index) {
+async function generateTraitImage(category, complexity, colorSeed, index) {
     // Check generation mode and route accordingly
     const generationMode = configCache[category].generationMode;
     
-    // For AI and Hybrid modes, return a promise wrapper for backward compatibility
-    if (generationMode === 'ai' || generationMode === 'hybrid') {
-        // Return a promise that resolves to the image data URL
-        return generateTraitImageAsync(category, complexity, colorSeed, index);
+    // Enforce global useAIGeneration toggle
+    if ((generationMode === 'ai' || generationMode === 'hybrid') && configCache.globalStyle.useAIGeneration) {
+        // AI/Hybrid modes when globally enabled
+        return await generateTraitImageAsync(category, complexity, colorSeed, index);
     }
     
-    // Procedural mode (existing synchronous logic)
+    // Procedural mode (always return as resolved promise for consistent API)
     return generateProceduralTrait(category, complexity, colorSeed, index);
 }
 
 async function generateTraitImageAsync(category, complexity, colorSeed, index) {
     const generationMode = configCache[category].generationMode;
+    let imageData;
     
     try {
         if (generationMode === 'ai') {
             // Pure AI generation
-            return await aiCoordinator.generateSingleAITrait(category, complexity, colorSeed, index);
+            imageData = await aiCoordinator.generateSingleAITrait(category, complexity, colorSeed, index);
         } else if (generationMode === 'hybrid') {
             // Hybrid: AI base + procedural overlay
             const aiBaseDataURL = await aiCoordinator.generateSingleAITrait(category, complexity, colorSeed, index);
-            return await applyProceduralOverlay(aiBaseDataURL, category, complexity, colorSeed, index);
+            imageData = await applyProceduralOverlay(aiBaseDataURL, category, complexity, colorSeed, index);
         }
     } catch (error) {
         console.warn(`Async generation failed for ${category}[${index}], falling back to procedural:`, error);
-        return generateProceduralTrait(category, complexity, colorSeed, index);
+        imageData = generateProceduralTrait(category, complexity, colorSeed, index);
     }
+
+    // Real-time QA analysis if enabled
+    if (configCache.qaSettings.enableRealTimeAnalysis && generationMode !== 'procedural' && window.qualityAssuranceEngine) {
+        const qaEngine = window.qualityAssuranceEngine;
+        const cacheKey = window.imageCacheManager ? window.imageCacheManager.generateCacheKey(category, complexity, colorSeed, index) : `${category}_${complexity}_${colorSeed}_${index}`;
+
+        // Analyze image in background (non-blocking)
+        qaEngine.analyzeImage(imageData, category, cacheKey).then(qaData => {
+            // Store QA metadata
+            if (window.imageCacheManager) {
+                window.imageCacheManager.storeQAMetadata(cacheKey, qaData);
+            }
+
+            // Check if outlier
+            if (qaData.outlier) {
+                window.dispatchEvent(new CustomEvent('qa:outlierDetected', {
+                    detail: { category, index, cacheKey, scores: qaData.scores }
+                }));
+
+                // Auto-queue for regeneration if score too low
+                if (qaData.scores.overall < configCache.qaSettings.outlierThreshold) {
+                    qaEngine.addToRegenerationQueue({
+                        cacheKey,
+                        category,
+                        originalMetadata: { complexity, colorSeed, index },
+                        reason: 'outlier'
+                    });
+                }
+            }
+        }).catch(error => {
+            console.error('QA analysis failed:', error);
+        });
+    }
+
+    return imageData;
 }
 
 function generateProceduralTrait(category, complexity, colorSeed, index) {
@@ -1785,10 +2188,86 @@ function generateHatTrait(ctx, complexity, baseColor, seed) {
     }
 }
 
+// ===== PREVIEW GENERATION FUNCTIONS =====
+
+async function generatePreviewSamples() {
+    const categories = ['background', 'body', 'eyes', 'mouth', 'hat'];
+    const samplesPerCategory = configCache.qaSettings.previewSamplesPerCategory;
+    const previewResults = {};
+
+    for (const category of categories) {
+        const mode = configCache[category].generationMode;
+        if (mode === 'procedural') {
+            // Skip QA for procedural (deterministic)
+            continue;
+        }
+
+        const samples = [];
+        const config = configCache[category];
+
+        // Generate random sample indices
+        const sampleIndices = Array.from({ length: samplesPerCategory }, (_, i) => Math.floor(Math.random() * config.numTraits));
+
+        for (const index of sampleIndices) {
+            const imageData = await generateTraitImageAsync(category, config.complexity, config.colorSeed, index);
+            samples.push({
+                imageData,
+                index,
+                category,
+                config: { ...config }
+            });
+        }
+
+        previewResults[category] = samples;
+    }
+
+    // Analyze preview samples
+    const qaEngine = window.qualityAssuranceEngine;
+    const analysisResults = {};
+
+    for (const [category, samples] of Object.entries(previewResults)) {
+        const images = samples.map(s => s.imageData);
+        const scores = await qaEngine.calculateConsistencyScore(images, category);
+        analysisResults[category] = {
+            samples,
+            scores,
+            approved: null // Pending user approval
+        };
+    }
+
+    // Emit event for UI to display preview modal
+    window.dispatchEvent(new CustomEvent('qa:previewReady', {
+        detail: { previewResults: analysisResults }
+    }));
+
+    return analysisResults;
+}
+
+function waitForPreviewApproval(previewResults) {
+    return new Promise((resolve) => {
+        // Show preview modal (implemented in Step 4)
+        showPreviewModal(previewResults, (approved) => {
+            resolve(approved);
+        });
+    });
+}
+
 // ===== TRAIT GENERATION AND MANAGEMENT =====
 
 async function generateAllTraits() {
-    const categories = Object.keys(configCache).filter(key => key !== 'globalStyle');
+    // Preview mode check
+    if (configCache.qaSettings.previewMode && !window.previewApproved) {
+        const previewResults = await generatePreviewSamples();
+        // Wait for user approval via modal
+        const approved = await waitForPreviewApproval(previewResults);
+        if (!approved) {
+            showToast('Preview generation cancelled', 'info');
+            return;
+        }
+        window.previewApproved = true;
+    }
+
+    const categories = Object.keys(configCache).filter(key => key !== 'globalStyle' && key !== 'qaSettings');
     let totalTraits = 0;
     let generatedTraits = 0;
     
@@ -1810,11 +2289,12 @@ async function generateAllTraits() {
     for (const category of categories) {
         const config = configCache[category];
         
-        if (config.generationMode === 'procedural') {
+        // Enforce global useAIGeneration toggle - bypass AI modes when disabled
+        if (config.generationMode === 'procedural' || !configCache.globalStyle.useAIGeneration) {
             // Synchronous procedural generation
             await generateProceduralTraits(category, config);
         } else {
-            // Async AI/Hybrid generation
+            // Async AI/Hybrid generation (only when global AI generation is enabled)
             await generateAITraits(category, config);
         }
     }
@@ -1979,13 +2459,42 @@ function initializeGenerateButton() {
             if (!confirmed) return;
         }
         
-        // Check if AI generation is enabled and API providers are available
+        // Enhanced preflight checks for AI generation
         const hasAICategories = Object.keys(configCache)
             .filter(key => key !== 'globalStyle')
             .some(category => configCache[category].generationMode !== 'procedural');
         
         if (hasAICategories && configCache.globalStyle.useAIGeneration) {
+            // Check if any valid provider is configured
             const availableProviders = apiManager.getProviderStatus().filter(p => p.isHealthy);
+            const activeProvider = apiManager.getActiveProviderName();
+            
+            if (availableProviders.length === 0 || !activeProvider) {
+                showErrorMessage('No valid AI providers configured. Please configure at least one API provider or disable AI generation.');
+                return;
+            }
+            
+            // Check cost estimation and quota if available
+            try {
+                updateCostEstimation();
+                const estimatedCostElement = document.getElementById('estimatedCost');
+                if (estimatedCostElement) {
+                    const costText = estimatedCostElement.textContent.replace('$', '');
+                    const estimatedCost = parseFloat(costText) || 0;
+                    
+                    // Soft threshold warning for high costs
+                    if (estimatedCost > 10) {
+                        const costConfirmed = confirm(
+                            `Estimated cost: $${estimatedCost.toFixed(2)} exceeds $10. This may consume significant API quota. Continue?`
+                        );
+                        if (!costConfirmed) return;
+                    }
+                }
+            } catch (error) {
+                console.warn('Cost estimation check failed:', error);
+            }
+            
+            // Final fallback check for unhealthy providers
             if (availableProviders.length === 0) {
                 const fallbackConfirmed = confirm(
                     'No healthy AI providers available. All categories will use procedural generation. Continue?'
@@ -2159,6 +2668,36 @@ async function generateNFTCollection(collectionSize, collectionName) {
             const validation = validateCategoryRarity(category);
             if (!validation.isValid) {
                 return { success: false, error: `Invalid rarity weights for category: ${category}` };
+            }
+        }
+        
+        // Collection-level budget guard (Comment 6)
+        if (window.budgetManager && configCache.globalStyle.useAIGeneration) {
+            // Estimate total cost for the collection
+            const aiCategories = categories.filter(category => 
+                configCache[category].generationMode === 'ai' || 
+                configCache[category].generationMode === 'hybrid'
+            );
+            
+            if (aiCategories.length > 0) {
+                // Get current active provider and estimate cost per image
+                const activeProvider = window.apiManager ? window.apiManager.getActiveProvider() : null;
+                if (activeProvider) {
+                    const providerName = activeProvider.name || 'gemini';
+                    const estimatedCostPerImage = 0.05; // Default estimate, could be refined
+                    const totalEstimatedCost = collectionSize * aiCategories.length * estimatedCostPerImage;
+                    
+                    // Check if collection generation would exceed budget
+                    const budgetCheck = await window.budgetManager.canMakeRequest(providerName, totalEstimatedCost);
+                    if (!budgetCheck.allowed) {
+                        return { 
+                            success: false, 
+                            error: `Collection generation would exceed budget: ${budgetCheck.message}` 
+                        };
+                    }
+                    
+                    console.log(`Collection budget check passed: ${totalEstimatedCost.toFixed(2)} estimated cost for ${collectionSize} NFTs`);
+                }
             }
         }
         
@@ -2339,6 +2878,42 @@ function initializeCollectionGeneration() {
                 return;
             }
             
+            // Enhanced AI preflight checks for collection generation
+            const hasAITraits = Object.values(globalState).some(categoryTraits => 
+                categoryTraits.some(trait => 
+                    trait.metadata && (trait.metadata.generationMode === 'ai' || trait.metadata.generationMode === 'hybrid')
+                )
+            );
+            
+            if (hasAITraits || configCache.globalStyle.useAIGeneration) {
+                const availableProviders = apiManager.getProviderStatus().filter(p => p.isHealthy);
+                const activeProvider = apiManager.getActiveProviderName();
+                
+                if (availableProviders.length === 0 || !activeProvider) {
+                    showErrorMessage('No valid AI providers available for collection generation with AI traits.');
+                    return;
+                }
+                
+                // Check cost estimation for collection generation
+                try {
+                    updateCostEstimation();
+                    const estimatedCostElement = document.getElementById('estimatedCost');
+                    if (estimatedCostElement) {
+                        const costText = estimatedCostElement.textContent.replace('$', '');
+                        const estimatedCost = parseFloat(costText) || 0;
+                        
+                        if (estimatedCost > 20) {
+                            const costConfirmed = confirm(
+                                `Collection generation estimated cost: $${estimatedCost.toFixed(2)} is very high. This may exceed API quotas. Continue?`
+                            );
+                            if (!costConfirmed) return;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Cost estimation check failed for collection generation:', error);
+                }
+            }
+            
             // Get input values
             const collectionSize = parseInt(collectionSizeInput?.value || '100');
             const collectionName = collectionNameInput?.value?.trim() || 'NFT Collection';
@@ -2438,14 +3013,45 @@ async function downloadCollectionAsZip() {
         const imagesFolder = zip.folder('images');
         const metadataFolder = zip.folder('metadata');
         
-        // Add each NFT to the ZIP
-        for (const nft of generatedCollection) {
+        // Build array of image data URLs for compression
+        const imageDataURLs = generatedCollection.map(nft => nft.imageDataURL);
+        
+        // Compress images if compression manager is available and enabled
+        let processedImages = imageDataURLs;
+        if (compressionManager && compressionManager.currentSettings.enableCompression) {
+            try {
+                console.log('Compressing images for ZIP export...');
+                const compressionResults = await compressionManager.prepareForExport(imageDataURLs, {
+                    quality: 'high',
+                    resolution: 'standard',
+                    format: 'webp',
+                    enableCompression: true
+                });
+                
+                // Extract compressed images from results
+                processedImages = compressionResults.map(result => 
+                    result.success ? result.compressed : result.original
+                );
+                
+                const successCount = compressionResults.filter(r => r.success).length;
+                console.log(`Compressed ${successCount}/${imageDataURLs.length} images for export`);
+            } catch (error) {
+                console.warn('Image compression failed, using original images:', error);
+                processedImages = imageDataURLs;
+            }
+        }
+        
+        // Add each NFT to the ZIP using processed (potentially compressed) images
+        for (let i = 0; i < generatedCollection.length; i++) {
+            const nft = generatedCollection[i];
+            const imageDataURL = processedImages[i];
+            
             try {
                 // Add image (convert data URL to base64)
-                const base64Data = nft.imageDataURL.split(',')[1];
+                const base64Data = imageDataURL.split(',')[1];
                 imagesFolder.file(`${nft.id}.png`, base64Data, { base64: true });
                 
-                // Add metadata JSON
+                // Add metadata JSON (unchanged)
                 metadataFolder.file(`${nft.id}.json`, JSON.stringify(nft.metadata, null, 2));
                 
             } catch (error) {
@@ -2544,7 +3150,7 @@ async function initializeAPIProviders() {
                     case 'openai':
                         provider = new OpenAIProvider(apiKey);
                         break;
-                    case 'stable_diffusion':
+                    case 'stablediffusion':
                         provider = new StableDiffusionProvider(apiKey);
                         break;
                     default:
@@ -2948,3 +3554,1775 @@ function updateGlobalStyleConfiguration(updates) {
         return false;
     }
 }
+
+// ===== AI CONFIGURATION UI CONTROLLERS =====
+
+// Global references for UI controllers
+let uiControllers = {
+    apiProviders: {},
+    styleConfig: {},
+    generationModes: {},
+    costEstimator: {}
+};
+
+// ===== API PROVIDER UI INITIALIZATION =====
+
+function initializeAPIProviderUI() {
+    console.log('Initializing API Provider UI...');
+    
+    // Initialize provider cards
+    const providers = ['gemini', 'openai', 'stablediffusion'];
+    
+    providers.forEach(async (providerName) => {
+        await initializeProviderCard(providerName);
+    });
+    
+    // Initialize active provider selector
+    initializeActiveProviderSelector();
+    
+    // Initialize export/import buttons
+    initializeConfigActions();
+    
+    // Start quota update interval
+    startQuotaUpdateInterval();
+    
+    console.log('API Provider UI initialized');
+}
+
+async function initializeProviderCard(providerName) {
+    const keyInput = document.getElementById(`${providerName}ApiKey`);
+    const validateBtn = document.getElementById(`${providerName}ValidateBtn`);
+    const removeBtn = document.getElementById(`${providerName}RemoveBtn`);
+    const statusIndicator = document.getElementById(`${providerName}Status`);
+    
+    if (!keyInput || !validateBtn || !statusIndicator) {
+        console.warn(`Provider card elements not found for ${providerName}`);
+        return;
+    }
+    
+    // Load stored API key
+    try {
+        const storedKey = await apiKeyStorage.getAPIKey(providerName);
+        if (storedKey) {
+            // Mask the key for display
+            keyInput.value = `••••••••${storedKey.slice(-4)}`;
+            keyInput.dataset.hasKey = 'true';
+            statusIndicator.textContent = '✓ Configured';
+            statusIndicator.className = 'status-indicator valid';
+            removeBtn.style.display = 'block';
+            
+            // Load and display quota
+            await updateProviderQuota(providerName);
+        }
+    } catch (error) {
+        console.warn(`Failed to load stored key for ${providerName}:`, error);
+    }
+    
+    // Attach event listeners
+    validateBtn.addEventListener('click', () => validateProviderKey(providerName));
+    removeBtn.addEventListener('click', () => removeProviderKey(providerName));
+    
+    // Clear validation status when key changes
+    keyInput.addEventListener('input', () => {
+        if (keyInput.dataset.hasKey === 'true') {
+            keyInput.dataset.hasKey = 'false';
+            keyInput.value = '';
+        }
+        statusIndicator.textContent = 'Not configured';
+        statusIndicator.className = 'status-indicator not-configured';
+        removeBtn.style.display = 'none';
+        hideQuotaDisplay(providerName);
+    });
+}
+
+async function validateProviderKey(providerName) {
+    const keyInput = document.getElementById(`${providerName}ApiKey`);
+    const validateBtn = document.getElementById(`${providerName}ValidateBtn`);
+    const statusIndicator = document.getElementById(`${providerName}Status`);
+    const removeBtn = document.getElementById(`${providerName}RemoveBtn`);
+    
+    const apiKey = keyInput.value.trim();
+    
+    if (!apiKey) {
+        showErrorMessage('Please enter an API key');
+        return;
+    }
+    
+    // Validate key format
+    const formatValidation = validateAPIKeyFormat(providerName, apiKey);
+    if (!formatValidation.valid) {
+        showErrorMessage(`Invalid ${providerName} API key format: ${formatValidation.error}`);
+        statusIndicator.textContent = '✗ Invalid format';
+        statusIndicator.className = 'status-indicator invalid';
+        return;
+    }
+    
+    // Show loading state
+    validateBtn.disabled = true;
+    validateBtn.textContent = 'Validating...';
+    statusIndicator.textContent = '⏳ Validating...';
+    statusIndicator.className = 'status-indicator validating';
+    
+    try {
+        // Save API key
+        await apiKeyStorage.saveAPIKey(providerName, apiKey);
+        
+        // Get provider instance and validate
+        const provider = apiManager.getProvider(providerName);
+        if (!provider) {
+            throw new Error(`Provider ${providerName} not found`);
+        }
+        
+        const isValid = await provider.validateKey();
+        
+        if (isValid) {
+            // Success
+            statusIndicator.textContent = '✓ Valid';
+            statusIndicator.className = 'status-indicator valid';
+            
+            // Mask the key for display
+            keyInput.value = `••••••••${apiKey.slice(-4)}`;
+            keyInput.dataset.hasKey = 'true';
+            removeBtn.style.display = 'block';
+            
+            // Update quota display
+            await updateProviderQuota(providerName);
+            
+            showSuccessMessage(`${providerName} API key validated successfully`);
+        } else {
+            throw new Error('API key validation failed');
+        }
+        
+    } catch (error) {
+        console.error(`Validation failed for ${providerName}:`, error);
+        statusIndicator.textContent = '✗ Invalid';
+        statusIndicator.className = 'status-indicator invalid';
+        
+        // Remove the invalid key
+        await apiKeyStorage.removeAPIKey(providerName);
+        
+        showErrorMessage(`${providerName} API key validation failed: ${error.message}`);
+    } finally {
+        validateBtn.disabled = false;
+        validateBtn.textContent = 'Validate';
+    }
+}
+
+async function removeProviderKey(providerName) {
+    const confirmed = confirm(`Remove API key for ${providerName}?`);
+    if (!confirmed) return;
+    
+    try {
+        await apiKeyStorage.removeAPIKey(providerName);
+        
+        // Reset UI
+        const keyInput = document.getElementById(`${providerName}ApiKey`);
+        const statusIndicator = document.getElementById(`${providerName}Status`);
+        const removeBtn = document.getElementById(`${providerName}RemoveBtn`);
+        
+        keyInput.value = '';
+        keyInput.dataset.hasKey = 'false';
+        statusIndicator.textContent = 'Not configured';
+        statusIndicator.className = 'status-indicator not-configured';
+        removeBtn.style.display = 'none';
+        
+        // Hide quota display
+        hideQuotaDisplay(providerName);
+        
+        // Disable provider in active selector if it was selected
+        const activeRadio = document.getElementById(`activeProvider${providerName.charAt(0).toUpperCase() + providerName.slice(1)}`);
+        if (activeRadio && activeRadio.checked) {
+            activeRadio.checked = false;
+        }
+        
+        showSuccessMessage(`${providerName} API key removed`);
+        
+    } catch (error) {
+        console.error(`Failed to remove key for ${providerName}:`, error);
+        showErrorMessage(`Failed to remove ${providerName} API key`);
+    }
+}
+
+async function updateProviderQuota(providerName) {
+    try {
+        const provider = apiManager.getProvider(providerName);
+        if (!provider) return;
+        
+        const quota = await provider.getQuota();
+        if (quota) {
+            displayQuotaInfo(providerName, quota);
+        }
+    } catch (error) {
+        console.warn(`Failed to update quota for ${providerName}:`, error);
+    }
+}
+
+function displayQuotaInfo(providerName, quota) {
+    const quotaDisplay = document.getElementById(`${providerName}Quota`);
+    if (!quotaDisplay) return;
+    
+    const remainingSpan = quotaDisplay.querySelector('.quota-remaining');
+    const limitSpan = quotaDisplay.querySelector('.quota-limit');
+    const progressFill = quotaDisplay.querySelector('.quota-progress-fill');
+    
+    if (remainingSpan && limitSpan && progressFill) {
+        remainingSpan.textContent = quota.remaining || 0;
+        limitSpan.textContent = quota.limit || 0;
+        
+        const percentage = quota.limit > 0 ? (quota.remaining / quota.limit) * 100 : 0;
+        progressFill.style.width = `${percentage}%`;
+        
+        // Show warning if quota is low
+        if (percentage < 10) {
+            quotaDisplay.classList.add('quota-warning');
+        } else {
+            quotaDisplay.classList.remove('quota-warning');
+        }
+        
+        quotaDisplay.style.display = 'block';
+    }
+}
+
+function hideQuotaDisplay(providerName) {
+    const quotaDisplay = document.getElementById(`${providerName}Quota`);
+    if (quotaDisplay) {
+        quotaDisplay.style.display = 'none';
+    }
+}
+
+function initializeActiveProviderSelector() {
+    const radioButtons = document.querySelectorAll('input[name="activeProvider"]');
+    
+    // Load current active provider
+    const activeProvider = apiManager.getActiveProviderName();
+    if (activeProvider) {
+        const activeRadio = document.getElementById(`activeProvider${activeProvider.charAt(0).toUpperCase() + activeProvider.slice(1)}`);
+        if (activeRadio) {
+            activeRadio.checked = true;
+        }
+    }
+    
+    // Attach event listeners
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                const providerName = e.target.value;
+                apiManager.setActiveProvider(providerName);
+                updateCostEstimation();
+                showSuccessMessage(`Active provider set to ${providerName}`);
+            }
+        });
+    });
+}
+
+function initializeConfigActions() {
+    const exportBtn = document.getElementById('exportConfigBtn');
+    const importBtn = document.getElementById('importConfigBtn');
+    
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            try {
+                apiConfigManager.downloadConfiguration();
+                showSuccessMessage('Configuration exported successfully');
+            } catch (error) {
+                console.error('Export failed:', error);
+                showErrorMessage('Failed to export configuration');
+            }
+        });
+    }
+    
+    if (importBtn) {
+        importBtn.addEventListener('click', () => {
+            try {
+                apiConfigManager.createImportFileInput();
+            } catch (error) {
+                console.error('Import failed:', error);
+                showErrorMessage('Failed to import configuration');
+            }
+        });
+    }
+}
+
+function startQuotaUpdateInterval() {
+    // Update quotas every 5 minutes
+    setInterval(async () => {
+        const providers = ['gemini', 'openai', 'stablediffusion'];
+        for (const providerName of providers) {
+            const keyInput = document.getElementById(`${providerName}ApiKey`);
+            if (keyInput && keyInput.dataset.hasKey === 'true') {
+                await updateProviderQuota(providerName);
+            }
+        }
+    }, 5 * 60 * 1000); // 5 minutes
+}
+
+// ===== STYLE CONFIGURATION UI =====
+
+function initializeStyleConfigUI() {
+    console.log('Initializing Style Configuration UI...');
+    
+    // Initialize preset dropdown
+    initializeStylePresetDropdown();
+    
+    // Initialize master style prompt
+    initializeMasterStylePrompt();
+    
+    // Initialize inheritance level
+    initializeInheritanceLevel();
+    
+    // Initialize negative prompts
+    initializeNegativePrompts();
+    
+    // Initialize color palette
+    initializeColorPalette();
+    
+    // Initialize preview button
+    initializeStylePreview();
+    
+    // Load current configuration
+    loadStyleConfigurationUI();
+    
+    console.log('Style Configuration UI initialized');
+}
+
+function initializeStylePresetDropdown() {
+    const dropdown = document.getElementById('stylePresetDropdown');
+    if (!dropdown) return;
+    
+    // Load current preset
+    const activePreset = styleEngine.getActivePreset();
+    if (activePreset) {
+        dropdown.value = styleEngine.activePreset;
+    }
+    
+    dropdown.addEventListener('change', (e) => {
+        const presetName = e.target.value;
+        if (presetName) {
+            applyStylePreset(presetName);
+        } else {
+            // Custom preset selected
+            styleEngine.activePreset = null;
+            syncStyleConfigToCache();
+        }
+    });
+}
+
+function initializeMasterStylePrompt() {
+    const textarea = document.getElementById('masterStylePrompt');
+    const charCounter = document.getElementById('promptCharCount');
+    
+    if (!textarea) return;
+    
+    // Load current prompt
+    textarea.value = configCache.globalStyle.masterPrompt || '';
+    updateCharCounter(textarea, charCounter);
+    
+    textarea.addEventListener('input', (e) => {
+        updateCharCounter(textarea, charCounter);
+        updateMasterStylePrompt();
+    });
+}
+
+function initializeInheritanceLevel() {
+    const radioButtons = document.querySelectorAll('input[name="inheritanceLevel"]');
+    
+    // Load current level
+    const currentLevel = configCache.globalStyle.consistencyLevel || 'moderate';
+    const currentRadio = document.querySelector(`input[name="inheritanceLevel"][value="${currentLevel}"]`);
+    if (currentRadio) {
+        currentRadio.checked = true;
+    }
+    
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                updateInheritanceLevel();
+            }
+        });
+    });
+}
+
+function initializeNegativePrompts() {
+    const textarea = document.getElementById('globalNegativePrompts');
+    if (!textarea) return;
+    
+    // Load current prompts
+    textarea.value = configCache.globalStyle.globalNegativePrompt || '';
+    
+    textarea.addEventListener('input', () => {
+        updateNegativePrompts();
+    });
+}
+
+function initializeColorPalette() {
+    const lockCheckbox = document.getElementById('colorPaletteLock');
+    const colorPickers = document.querySelectorAll('.color-picker-item');
+    
+    if (!lockCheckbox) return;
+    
+    // Load current palette lock state
+    lockCheckbox.checked = configCache.globalStyle.colorPaletteLock || false;
+    
+    // Load current colors
+    const lockedColors = configCache.globalStyle.lockedColors || [];
+    colorPickers.forEach((picker, index) => {
+        if (lockedColors[index]) {
+            picker.value = lockedColors[index];
+        }
+        picker.disabled = !lockCheckbox.checked;
+    });
+    
+    // Attach event listeners
+    lockCheckbox.addEventListener('change', () => {
+        toggleColorPaletteLock();
+    });
+    
+    colorPickers.forEach((picker, index) => {
+        picker.addEventListener('change', (e) => {
+            updateColorPalette(index, e.target.value);
+        });
+    });
+}
+
+function initializeStylePreview() {
+    const previewBtn = document.getElementById('previewStyleBtn');
+    if (!previewBtn) return;
+    
+    previewBtn.addEventListener('click', () => {
+        previewStylePrompt('background');
+    });
+}
+
+function loadStyleConfigurationUI() {
+    // This function loads the current style configuration into the UI
+    // Most of the loading is already done in individual init functions
+    console.log('Style configuration UI loaded');
+}
+
+function applyStylePreset(presetName) {
+    try {
+        const success = styleEngine.applyPreset(presetName);
+        if (success) {
+            const preset = styleEngine.getActivePreset();
+            
+            // Update UI fields
+            const masterPrompt = document.getElementById('masterStylePrompt');
+            if (masterPrompt && preset) {
+                masterPrompt.value = preset.masterStyle || '';
+                updateCharCounter(masterPrompt, document.getElementById('promptCharCount'));
+            }
+            
+            // Update color palette
+            const colorPickers = document.querySelectorAll('.color-picker-item');
+            if (preset && preset.colorPalette) {
+                colorPickers.forEach((picker, index) => {
+                    if (preset.colorPalette[index]) {
+                        picker.value = preset.colorPalette[index];
+                    }
+                });
+            }
+            
+            // Sync to cache and save
+            syncStyleConfigToCache();
+            saveStyleConfiguration();
+            
+            showSuccessMessage(`Preset applied: ${presetName}`);
+        } else {
+            showErrorMessage(`Failed to apply preset: ${presetName}`);
+        }
+    } catch (error) {
+        console.error('Error applying preset:', error);
+        showErrorMessage(`Error applying preset: ${error.message}`);
+    }
+}
+
+function updateMasterStylePrompt() {
+    const textarea = document.getElementById('masterStylePrompt');
+    if (!textarea) return;
+    
+    const prompt = textarea.value.trim();
+    
+    // Validate
+    if (prompt.length > 500) {
+        showErrorMessage('Master style prompt must be 500 characters or less');
+        return;
+    }
+    
+    // Update style engine
+    styleEngine.setMasterStylePrompt(prompt);
+    
+    // Sync to cache
+    configCache.globalStyle.masterPrompt = prompt;
+    
+    // Save to localStorage
+    saveStyleConfiguration();
+}
+
+function updateInheritanceLevel() {
+    const selectedRadio = document.querySelector('input[name="inheritanceLevel"]:checked');
+    if (!selectedRadio) return;
+    
+    const level = selectedRadio.value;
+    
+    // Update cache
+    configCache.globalStyle.consistencyLevel = level;
+    
+    // Save to localStorage
+    saveStyleConfiguration();
+}
+
+function updateNegativePrompts() {
+    const textarea = document.getElementById('globalNegativePrompts');
+    if (!textarea) return;
+    
+    const prompts = textarea.value.trim();
+    
+    // Update style engine
+    styleEngine.setGlobalNegativePrompt(prompts);
+    
+    // Sync to cache
+    configCache.globalStyle.globalNegativePrompt = prompts;
+    
+    // Save to localStorage
+    saveStyleConfiguration();
+}
+
+function toggleColorPaletteLock() {
+    const lockCheckbox = document.getElementById('colorPaletteLock');
+    const colorPickers = document.querySelectorAll('.color-picker-item');
+    
+    if (!lockCheckbox) return;
+    
+    const isLocked = lockCheckbox.checked;
+    
+    // Enable/disable color pickers
+    colorPickers.forEach(picker => {
+        picker.disabled = !isLocked;
+    });
+    
+    if (isLocked) {
+        // Lock the current palette
+        const colors = Array.from(colorPickers).map(picker => picker.value);
+        styleEngine.lockColorPalette(colors);
+        configCache.globalStyle.lockedColors = colors;
+    } else {
+        // Unlock palette
+        styleEngine.unlockColorPalette();
+        configCache.globalStyle.lockedColors = [];
+    }
+    
+    // Update cache
+    configCache.globalStyle.colorPaletteLock = isLocked;
+    
+    // Save to localStorage
+    saveStyleConfiguration();
+}
+
+function updateColorPalette(index, color) {
+    // Validate hex color
+    if (!/^#[0-9A-F]{6}$/i.test(color)) {
+        showErrorMessage('Invalid color format');
+        return;
+    }
+    
+    // Update locked colors array
+    if (!configCache.globalStyle.lockedColors) {
+        configCache.globalStyle.lockedColors = [];
+    }
+    
+    configCache.globalStyle.lockedColors[index] = color;
+    
+    // Update style engine if palette is locked
+    if (configCache.globalStyle.colorPaletteLock) {
+        styleEngine.lockColorPalette(configCache.globalStyle.lockedColors);
+    }
+    
+    // Save to localStorage
+    saveStyleConfiguration();
+}
+
+function previewStylePrompt(category) {
+    try {
+        const prompt = styleEngine.buildPrompt(category, 'A sample trait', { complexity: 5 });
+        const negativePrompt = styleEngine.buildNegativePrompt(category);
+        
+        const message = `${category.charAt(0).toUpperCase() + category.slice(1)} Prompt:\n\n${prompt}\n\nNegative Prompt:\n${negativePrompt}`;
+        
+        alert(message);
+    } catch (error) {
+        console.error('Error previewing style prompt:', error);
+        showErrorMessage('Failed to preview style prompt');
+    }
+}
+
+function updateCharCounter(textarea, counterElement) {
+    if (counterElement) {
+        counterElement.textContent = textarea.value.length;
+    }
+}
+
+function syncStyleConfigToCache() {
+    // This function syncs the style engine state to configCache
+    // Most syncing is already done in individual update functions
+    console.log('Style config synced to cache');
+}
+
+// ===== GENERATION MODE CONFIGURATION UI =====
+
+function initializeGenerationModeUI() {
+    console.log('Initializing Generation Mode UI...');
+    
+    // Initialize global AI toggle
+    initializeGlobalAIToggle();
+    
+    // Initialize per-category mode selectors
+    initializeCategoryModeSelectors();
+    
+    // Initialize hybrid opacity slider
+    initializeHybridOpacitySlider();
+    
+    // Load current configuration
+    loadGenerationModeConfiguration();
+    
+    console.log('Generation Mode UI initialized');
+}
+
+function initializeGlobalAIToggle() {
+    const globalToggle = document.getElementById('globalAiToggle');
+    if (!globalToggle) return;
+    
+    // Load current state
+    globalToggle.checked = configCache.globalStyle.useAIGeneration || false;
+    
+    globalToggle.addEventListener('change', () => {
+        toggleGlobalAI();
+    });
+}
+
+function initializeCategoryModeSelectors() {
+    const categories = ['bg', 'body', 'eyes', 'mouth', 'hat'];
+    
+    categories.forEach(category => {
+        const categoryKey = category === 'bg' ? 'background' : category;
+        const radioButtons = document.querySelectorAll(`input[name="${category}Mode"]`);
+        
+        // Load current mode
+        const currentMode = configCache[categoryKey].generationMode || 'procedural';
+        const currentRadio = document.querySelector(`input[name="${category}Mode"][value="${currentMode}"]`);
+        if (currentRadio) {
+            currentRadio.checked = true;
+        }
+        
+        // Attach event listeners
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    updateGenerationMode(categoryKey, e.target.value);
+                }
+            });
+        });
+    });
+}
+
+function initializeHybridOpacitySlider() {
+    const slider = document.getElementById('hybridOpacity');
+    const valueSpan = document.getElementById('hybridOpacityValue');
+    
+    if (!slider || !valueSpan) return;
+    
+    // Load current value
+    const currentOpacity = (configCache.background.aiOptions.hybridOverlayOpacity || 0.4) * 100;
+    slider.value = currentOpacity;
+    valueSpan.textContent = Math.round(currentOpacity);
+    
+    slider.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        valueSpan.textContent = value;
+        updateHybridOpacity();
+    });
+}
+
+function loadGenerationModeConfiguration() {
+    // Update UI based on global AI toggle state
+    updateCategoryModeStates();
+}
+
+function toggleGlobalAI() {
+    const globalToggle = document.getElementById('globalAiToggle');
+    if (!globalToggle) return;
+    
+    const isEnabled = globalToggle.checked;
+    
+    // Update cache
+    configCache.globalStyle.useAIGeneration = isEnabled;
+    
+    if (!isEnabled) {
+        // Reset all categories to procedural
+        const categories = ['background', 'body', 'eyes', 'mouth', 'hat'];
+        categories.forEach(category => {
+            configCache[category].generationMode = 'procedural';
+            
+            // Update UI radio buttons
+            const categoryPrefix = category === 'background' ? 'bg' : category;
+            const proceduralRadio = document.querySelector(`input[name="${categoryPrefix}Mode"][value="procedural"]`);
+            if (proceduralRadio) {
+                proceduralRadio.checked = true;
+            }
+        });
+    }
+    
+    // Update category mode states (enable/disable)
+    updateCategoryModeStates();
+    
+    // Update cost estimation
+    updateCostEstimation();
+    
+    // Save configuration
+    saveConfiguration();
+    
+    const message = isEnabled ? 'AI generation enabled' : 'AI generation disabled - all categories reset to procedural';
+    showSuccessMessage(message);
+}
+
+function updateGenerationMode(category, mode) {
+    // Validate mode
+    if (!['procedural', 'ai', 'hybrid'].includes(mode)) {
+        showErrorMessage('Invalid generation mode');
+        return;
+    }
+    
+    // Update cache
+    configCache[category].generationMode = mode;
+    
+    // Update cost estimation
+    updateCostEstimation();
+    
+    // Save configuration
+    saveConfiguration();
+    
+    showSuccessMessage(`${category} generation mode set to ${mode}`);
+}
+
+function updateHybridOpacity() {
+    const slider = document.getElementById('hybridOpacity');
+    if (!slider) return;
+    
+    const opacity = parseInt(slider.value) / 100;
+    
+    // Update all categories
+    const categories = ['background', 'body', 'eyes', 'mouth', 'hat'];
+    categories.forEach(category => {
+        configCache[category].aiOptions.hybridOverlayOpacity = opacity;
+    });
+    
+    // Save configuration
+    saveConfiguration();
+}
+
+function updateCategoryModeStates() {
+    const globalToggle = document.getElementById('globalAiToggle');
+    const isGlobalEnabled = globalToggle ? globalToggle.checked : false;
+    
+    const categories = ['bg', 'body', 'eyes', 'mouth', 'hat'];
+    
+    categories.forEach(category => {
+        const aiRadio = document.querySelector(`input[name="${category}Mode"][value="ai"]`);
+        const hybridRadio = document.querySelector(`input[name="${category}Mode"][value="hybrid"]`);
+        const aiLabel = aiRadio ? aiRadio.closest('.mode-radio-label') : null;
+        const hybridLabel = hybridRadio ? hybridRadio.closest('.mode-radio-label') : null;
+        
+        if (aiRadio && hybridRadio) {
+            aiRadio.disabled = !isGlobalEnabled;
+            hybridRadio.disabled = !isGlobalEnabled;
+            
+            if (aiLabel && hybridLabel) {
+                if (isGlobalEnabled) {
+                    aiLabel.classList.remove('disabled');
+                    hybridLabel.classList.remove('disabled');
+                } else {
+                    aiLabel.classList.add('disabled');
+                    hybridLabel.classList.add('disabled');
+                }
+            }
+        }
+    });
+}
+
+// ===== COST ESTIMATION =====
+
+function initializeCostEstimator() {
+    console.log('Initializing Cost Estimator...');
+    
+    const collectionSizeInput = document.getElementById('costCollectionSize');
+    
+    if (collectionSizeInput) {
+        // Sync with main collection size input if it exists
+        const mainCollectionSize = document.getElementById('collectionSize');
+        if (mainCollectionSize) {
+            collectionSizeInput.value = mainCollectionSize.value;
+            
+            // Sync both ways
+            collectionSizeInput.addEventListener('input', (e) => {
+                mainCollectionSize.value = e.target.value;
+                updateCostEstimation();
+            });
+            
+            mainCollectionSize.addEventListener('input', (e) => {
+                collectionSizeInput.value = e.target.value;
+                updateCostEstimation();
+            });
+        } else {
+            collectionSizeInput.addEventListener('input', () => {
+                updateCostEstimation();
+            });
+        }
+    }
+    
+    // Initial calculation
+    updateCostEstimation();
+    
+    console.log('Cost Estimator initialized');
+}
+
+function updateCostEstimation() {
+    const collectionSizeInput = document.getElementById('costCollectionSize');
+    const estimatedCostElement = document.getElementById('estimatedCost');
+    const costWarning = document.getElementById('costWarning');
+    
+    if (!collectionSizeInput || !estimatedCostElement) return;
+    
+    const collectionSize = parseInt(collectionSizeInput.value) || 100;
+    
+    // Count AI-enabled categories - reset to 0 when AI generation is globally disabled
+    const categories = ['background', 'body', 'eyes', 'mouth', 'hat'];
+    let aiEnabledCount = 0;
+    
+    if (configCache.globalStyle.useAIGeneration) {
+        aiEnabledCount = categories.filter(category => {
+            const mode = configCache[category].generationMode;
+            return (mode === 'ai' || mode === 'hybrid');
+        }).length;
+    }
+    
+    // Provider costs per image
+    const providerCosts = {
+        gemini: 0.039,
+        openai: 0.080,
+        stablediffusion: 0.050
+    };
+    
+    // Update table rows
+    Object.entries(providerCosts).forEach(([provider, costPerImage]) => {
+        const row = document.querySelector(`.cost-row[data-provider="${provider}"]`);
+        if (row) {
+            const aiCategoriesCell = row.querySelector('.ai-categories-count');
+            const collectionSizeCell = row.querySelector('.collection-size-display');
+            const providerCostCell = row.querySelector('.provider-cost');
+            
+            if (aiCategoriesCell && collectionSizeCell && providerCostCell) {
+                aiCategoriesCell.textContent = aiEnabledCount;
+                collectionSizeCell.textContent = collectionSize;
+                
+                const totalCost = collectionSize * aiEnabledCount * costPerImage;
+                providerCostCell.textContent = `$${totalCost.toFixed(2)}`;
+            }
+        }
+    });
+    
+    // Calculate total cost for active provider - normalize and validate provider name
+    let activeProvider = apiManager.getActiveProviderName();
+    
+    // Validate activeProvider against known keys in providerCosts and map to safe default
+    if (!activeProvider || !providerCosts.hasOwnProperty(activeProvider)) {
+        activeProvider = 'gemini'; // Safe default
+    }
+    
+    const activeProviderCost = providerCosts[activeProvider];
+    const totalCost = collectionSize * aiEnabledCount * activeProviderCost;
+    
+    // Update total cost display
+    estimatedCostElement.textContent = `$${totalCost.toFixed(2)}`;
+    
+    // Highlight active provider row
+    document.querySelectorAll('.cost-row').forEach(row => {
+        row.classList.remove('active');
+    });
+    const activeRow = document.querySelector(`.cost-row[data-provider="${activeProvider}"]`);
+    if (activeRow) {
+        activeRow.classList.add('active');
+    }
+    
+    // Show/hide warning
+    if (costWarning) {
+        if (totalCost > 10) {
+            costWarning.style.display = 'block';
+            costWarning.textContent = `⚠️ Estimated cost: $${totalCost.toFixed(2)} exceeds $10. Consider reducing collection size or disabling AI for some categories.`;
+        } else {
+            costWarning.style.display = 'none';
+        }
+    }
+}
+
+// ===== REAL-TIME VALIDATION =====
+
+function validateAPIKeyFormat(providerName, apiKey) {
+    // Relaxed validation - only check broad, stable characteristics
+    // Final validity is determined by provider.validateKey(), not format heuristics
+    
+    switch (providerName.toLowerCase()) {
+        case 'gemini':
+            if (!apiKey.startsWith('AIza')) {
+                return { valid: false, error: 'Gemini API keys should start with "AIza". Final validity will be confirmed by provider validation.' };
+            }
+            break;
+        case 'openai':
+            if (!apiKey.startsWith('sk-') || apiKey.length < 20) {
+                return { valid: false, error: 'OpenAI API keys should start with "sk-" and be reasonably long. Final validity will be confirmed by provider validation.' };
+            }
+            break;
+        case 'stablediffusion':
+            if (!apiKey.startsWith('sk-')) {
+                return { valid: false, error: 'Stable Diffusion API keys should start with "sk-". Final validity will be confirmed by provider validation.' };
+            }
+            break;
+        default:
+            return { valid: false, error: 'Unknown provider' };
+    }
+    
+    return { valid: true, error: null };
+}
+
+function showValidationMessage(message, type) {
+    // Remove existing messages
+    const existingMessages = document.querySelectorAll('.validation-message');
+    existingMessages.forEach(msg => msg.remove());
+    
+    // Create new message
+    const messageElement = document.createElement('div');
+    messageElement.className = `validation-message ${type}`;
+    messageElement.textContent = message;
+    messageElement.setAttribute('role', 'alert');
+    
+    // Add to page
+    document.body.appendChild(messageElement);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (messageElement.parentNode) {
+            messageElement.remove();
+        }
+    }, 3000);
+}
+
+function showErrorMessage(message) {
+    showValidationMessage(message, 'error');
+}
+
+function showSuccessMessage(message) {
+    showValidationMessage(message, 'success');
+}
+
+function showInfoMessage(message) {
+    showValidationMessage(message, 'info');
+}
+
+// ===== COLLAPSIBLE SECTION TOGGLE =====
+
+function initializeCollapsibleSections() {
+    const toggleBtn = document.getElementById('aiConfigToggle');
+    const content = document.getElementById('aiConfigContent');
+    
+    if (!toggleBtn || !content) return;
+    
+    // Load saved state
+    const isCollapsed = localStorage.getItem('aiConfigCollapsed') === 'true';
+    if (isCollapsed) {
+        content.classList.add('collapsed');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        toggleBtn.textContent = '▶';
+    }
+    
+    toggleBtn.addEventListener('click', () => {
+        const isCurrentlyCollapsed = content.classList.contains('collapsed');
+        
+        if (isCurrentlyCollapsed) {
+            content.classList.remove('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+            toggleBtn.textContent = '▼';
+        } else {
+            content.classList.add('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+            toggleBtn.textContent = '▶';
+        }
+        
+        // Save state
+        localStorage.setItem('aiConfigCollapsed', !isCurrentlyCollapsed);
+    });
+}
+
+// ===== EVENT LISTENERS FOR BACKEND EVENTS =====
+
+function initializeBackendEventListeners() {
+    // API Manager events
+    window.addEventListener('apiManager:imageGenerated', (e) => {
+        // Update quota displays after image generation
+        const providerName = e.detail.provider;
+        if (providerName) {
+            setTimeout(() => updateProviderQuota(providerName), 1000);
+        }
+    });
+    
+    window.addEventListener('apiManager:failoverOccurred', (e) => {
+        const { fromProvider, toProvider, reason } = e.detail;
+        showInfoMessage(`Failover: ${fromProvider} → ${toProvider} (${reason})`);
+    });
+    
+    window.addEventListener('apiManager:providerDisabled', (e) => {
+        const { provider, reason } = e.detail;
+        showErrorMessage(`Provider ${provider} disabled: ${reason}`);
+        
+        // Update UI to reflect disabled state
+        const providerCard = document.querySelector(`.provider-card[data-provider="${provider}"]`);
+        if (providerCard) {
+            providerCard.classList.add('disabled');
+        }
+    });
+    
+    // Style Engine events
+    window.addEventListener('styleEngine:configChanged', (e) => {
+        // Sync UI fields when style config changes programmatically
+        loadStyleConfigurationUI();
+    });
+    
+    // AI Generation events
+    window.addEventListener('aiGenerationProgress', (e) => {
+        const { category, current, total, percentage } = e.detail;
+        showInfoMessage(`Generating ${category}: ${current}/${total} (${percentage}%)`);
+    });
+    
+    window.addEventListener('aiGenerationComplete', (e) => {
+        const { category, successCount, failureCount } = e.detail;
+        showSuccessMessage(`${category} generation complete: ${successCount} success, ${failureCount} failed`);
+    });
+    
+    window.addEventListener('aiGenerationFallback', (e) => {
+        const { category, index, error } = e.detail;
+        showInfoMessage(`${category}[${index}] fell back to procedural: ${error}`);
+    });
+}
+
+// ===== INTEGRATION WITH EXISTING INITIALIZATION =====
+
+// Update the main DOMContentLoaded listener to include AI UI initialization
+function initializeAIConfigurationUI() {
+    console.log('Initializing AI Configuration UI...');
+    
+    try {
+        // Initialize all UI components
+        initializeCollapsibleSections();
+        initializeAPIProviderUI();
+        initializeStyleConfigUI();
+        initializeGenerationModeUI();
+        initializeCostEstimator();
+        initializeBackendEventListeners();
+        
+        console.log('AI Configuration UI initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize AI Configuration UI:', error);
+        showErrorMessage('Failed to initialize AI configuration interface');
+    }
+}
+// ===== COST OPTIMIZATION SYSTEMS INITIALIZATION =====
+
+// Global instances for cost optimization
+let imageCacheManager = null;
+let budgetManager = null;
+let costAnalytics = null;
+let batchOptimizer = null;
+let smartRegenerator = null;
+let compressionManager = null;
+
+async function initializeCostOptimizationSystems() {
+    console.log('Initializing cost optimization systems...');
+    
+    try {
+        // Initialize IndexedDB Cache Manager
+        imageCacheManager = new ImageCacheManager();
+        const cacheInitialized = await imageCacheManager.initialize();
+        window.imageCacheManager = imageCacheManager;
+        
+        // Initialize Budget Manager
+        budgetManager = new BudgetManager();
+        const budgetInitialized = await budgetManager.initialize();
+        window.budgetManager = budgetManager;
+        
+        // Initialize Cost Analytics
+        costAnalytics = new CostAnalytics(budgetManager);
+        const analyticsInitialized = await costAnalytics.initialize();
+        window.costAnalytics = costAnalytics;
+        
+        // Initialize Batch Optimizer
+        batchOptimizer = new BatchOptimizer();
+        batchOptimizer.initialize({
+            maxConcurrency: 5
+        });
+        window.batchOptimizer = batchOptimizer;
+        
+        // Initialize Smart Regenerator
+        smartRegenerator = new SmartRegenerator(imageCacheManager);
+        const regenInitialized = await smartRegenerator.initialize();
+        window.smartRegenerator = smartRegenerator;
+        
+        // Initialize Compression Manager
+        compressionManager = new CompressionManager();
+        const compressionInitialized = await compressionManager.initialize();
+        window.compressionManager = compressionManager;
+        
+        // Set up batch optimizer request executor
+        batchOptimizer.setRequestExecutor(async (request, batchId, index) => {
+            return await aiCoordinator.generateSingleAITrait(
+                request.category,
+                request.complexity,
+                request.colorSeed,
+                request.index
+            );
+        });
+        
+        // Initialize UI components
+        initializeBudgetControlsUI();
+        initializeCostAnalyticsDashboard();
+        
+        console.log('Cost optimization systems initialized successfully');
+        
+        return {
+            cache: cacheInitialized,
+            budget: budgetInitialized,
+            analytics: analyticsInitialized,
+            compression: compressionInitialized,
+            regeneration: regenInitialized
+        };
+        
+    } catch (error) {
+        console.error('Failed to initialize cost optimization systems:', error);
+        return false;
+    }
+}
+
+// ===== BUDGET CONTROLS UI =====
+
+function initializeBudgetControlsUI() {
+    console.log('Initializing Budget Controls UI...');
+    
+    // Initialize provider budget inputs
+    const providers = ['gemini', 'openai', 'stablediffusion'];
+    
+    providers.forEach(provider => {
+        initializeProviderBudgetControls(provider);
+    });
+    
+    // Initialize global budget controls
+    initializeGlobalBudgetControls();
+    
+    // Initialize warning threshold selector
+    initializeWarningThresholdSelector();
+    
+    // Start budget status updates
+    startBudgetStatusUpdates();
+    
+    console.log('Budget Controls UI initialized');
+}
+
+function initializeProviderBudgetControls(provider) {
+    const dailyInput = document.getElementById(`${provider}DailyBudget`);
+    const monthlyInput = document.getElementById(`${provider}MonthlyBudget`);
+    
+    if (!dailyInput || !monthlyInput) return;
+    
+    // Load current budget limits
+    const currentBudgets = budgetManager.currentBudgets[provider] || {};
+    dailyInput.value = currentBudgets.daily || 0;
+    monthlyInput.value = currentBudgets.monthly || 0;
+    
+    // Add event listeners
+    dailyInput.addEventListener('change', async (e) => {
+        const amount = parseFloat(e.target.value) || 0;
+        await budgetManager.setBudgetLimit(provider, 'daily', amount);
+        updateBudgetStatus(provider);
+        showSuccessMessage(`${provider} daily budget updated to $${amount.toFixed(2)}`);
+    });
+    
+    monthlyInput.addEventListener('change', async (e) => {
+        const amount = parseFloat(e.target.value) || 0;
+        await budgetManager.setBudgetLimit(provider, 'monthly', amount);
+        updateBudgetStatus(provider);
+        showSuccessMessage(`${provider} monthly budget updated to $${amount.toFixed(2)}`);
+    });
+}
+
+function initializeGlobalBudgetControls() {
+    const globalInput = document.getElementById('globalMonthlyBudget');
+    if (!globalInput) return;
+    
+    // Load current global budget
+    globalInput.value = budgetManager.currentBudgets.global.monthly || 0;
+    
+    globalInput.addEventListener('change', async (e) => {
+        const amount = parseFloat(e.target.value) || 0;
+        await budgetManager.setBudgetLimit('global', 'monthly', amount);
+        updateGlobalBudgetStatus();
+        showSuccessMessage(`Global monthly budget updated to $${amount.toFixed(2)}`);
+    });
+}
+
+function initializeWarningThresholdSelector() {
+    const thresholdSelect = document.getElementById('budgetWarningThreshold');
+    if (!thresholdSelect) return;
+    
+    // Load current threshold
+    thresholdSelect.value = budgetManager.currentBudgets.warningThreshold || 75;
+    
+    thresholdSelect.addEventListener('change', (e) => {
+        const threshold = parseInt(e.target.value);
+        budgetManager.currentBudgets.warningThreshold = threshold;
+        budgetManager.saveBudgetsToLocalStorage();
+        showSuccessMessage(`Warning threshold set to ${threshold}%`);
+    });
+}
+
+async function updateBudgetStatus(provider) {
+    const remaining = await budgetManager.getRemainingBudget(provider);
+    
+    // Update remaining amount display
+    const remainingElement = document.getElementById(`${provider}DailyRemaining`);
+    if (remainingElement) {
+        remainingElement.textContent = `$${remaining.daily.remaining.toFixed(2)}`;
+    }
+    
+    // Update progress bar
+    const progressElement = document.getElementById(`${provider}DailyProgress`);
+    const percentageElement = document.getElementById(`${provider}DailyPercentage`);
+    
+    if (progressElement && percentageElement) {
+        const percentage = remaining.daily.percentage;
+        progressElement.style.width = `${Math.min(100, percentage)}%`;
+        percentageElement.textContent = `${percentage.toFixed(1)}%`;
+        
+        // Update color based on usage
+        progressElement.className = 'budget-progress-fill';
+        if (percentage >= 90) {
+            progressElement.classList.add('high');
+        } else if (percentage >= 75) {
+            progressElement.classList.add('medium');
+        } else {
+            progressElement.classList.add('low');
+        }
+    }
+}
+
+async function updateGlobalBudgetStatus() {
+    const globalSpend = await budgetManager.getGlobalSpend('monthly');
+    const globalLimit = budgetManager.currentBudgets.global.monthly;
+    const remaining = Math.max(0, globalLimit - globalSpend);
+    
+    const remainingElement = document.getElementById('globalMonthlyRemaining');
+    if (remainingElement) {
+        remainingElement.textContent = `$${remaining.toFixed(2)}`;
+    }
+}
+
+function startBudgetStatusUpdates() {
+    // Update budget status every 30 seconds
+    setInterval(async () => {
+        const providers = ['gemini', 'openai', 'stablediffusion'];
+        for (const provider of providers) {
+            await updateBudgetStatus(provider);
+        }
+        await updateGlobalBudgetStatus();
+    }, 30000);
+    
+    // Initial update
+    setTimeout(async () => {
+        const providers = ['gemini', 'openai', 'stablediffusion'];
+        for (const provider of providers) {
+            await updateBudgetStatus(provider);
+        }
+        await updateGlobalBudgetStatus();
+    }, 1000);
+}
+
+// ===== COST ANALYTICS DASHBOARD UI =====
+
+function initializeCostAnalyticsDashboard() {
+    console.log('Initializing Cost Analytics Dashboard...');
+    
+    // Initialize export functionality
+    initializeAnalyticsExport();
+    
+    // Initialize clear data functionality
+    initializeAnalyticsClear();
+    
+    // The dashboard will be updated automatically by CostAnalytics class
+    console.log('Cost Analytics Dashboard initialized');
+}
+
+function initializeAnalyticsExport() {
+    const exportBtn = document.getElementById('exportAnalyticsBtn');
+    if (!exportBtn) return;
+    
+    exportBtn.addEventListener('click', async () => {
+        try {
+            exportBtn.disabled = true;
+            exportBtn.textContent = 'Exporting...';
+            
+            const report = await costAnalytics.exportReport('csv');
+            
+            // Create and download file
+            const blob = new Blob([report], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `nft-generator-analytics-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showSuccessMessage('Analytics report exported successfully');
+            
+        } catch (error) {
+            console.error('Export failed:', error);
+            showErrorMessage('Failed to export analytics report');
+        } finally {
+            exportBtn.disabled = false;
+            exportBtn.textContent = 'Export Report';
+        }
+    });
+}
+
+function initializeAnalyticsClear() {
+    const clearBtn = document.getElementById('clearAnalyticsBtn');
+    if (!clearBtn) return;
+    
+    clearBtn.addEventListener('click', async () => {
+        const confirmed = confirm('Clear all analytics data? This action cannot be undone.');
+        if (!confirmed) return;
+        
+        try {
+            // Clear budget history (this would need to be implemented in BudgetManager)
+            // For now, just reset the analytics stats
+            if (costAnalytics) {
+                costAnalytics.resetStats();
+            }
+            
+            if (imageCacheManager) {
+                await imageCacheManager.clear();
+            }
+            
+            showSuccessMessage('Analytics data cleared successfully');
+            
+            // Refresh dashboard
+            setTimeout(() => {
+                if (costAnalytics) {
+                    costAnalytics.updateDashboard();
+                }
+            }, 500);
+            
+        } catch (error) {
+            console.error('Clear failed:', error);
+            showErrorMessage('Failed to clear analytics data');
+        }
+    });
+}
+
+// ===== ENHANCED AI GENERATION WITH COST OPTIMIZATION =====
+
+// Modify AIGenerationCoordinator.generateSingleAITrait to integrate with new systems
+const originalGenerateSingleAITrait = aiCoordinator.generateSingleAITrait;
+aiCoordinator.generateSingleAITrait = async function(category, complexity, colorSeed, index) {
+    const cacheKey = imageCacheManager ? imageCacheManager.generateCacheKey(category, complexity, colorSeed, index) : null;
+    
+    // Define providerCosts in outer scope for all blocks to use
+    const providerCosts = { gemini: 0.039, openai: 0.080, stablediffusion: 0.050 };
+    const activeProvider = apiManager.getActiveProviderName();
+    const costPerImage = providerCosts[activeProvider] || 0.05;
+    
+    // Check IndexedDB cache first
+    if (imageCacheManager && cacheKey) {
+        const cached = await imageCacheManager.get(cacheKey);
+        if (cached) {
+            console.log(`Cache hit for ${cacheKey}`);
+            return cached.imageData;
+        }
+    }
+    
+    // Check budget before making API call
+    if (budgetManager) {
+        const canMakeRequest = await budgetManager.canMakeRequest(activeProvider, costPerImage);
+        if (!canMakeRequest.allowed) {
+            throw new Error(`Budget limit exceeded: ${canMakeRequest.message}`);
+        }
+    }
+    
+    // Generate using original method
+    const result = await originalGenerateSingleAITrait.call(this, category, complexity, colorSeed, index);
+    
+    // Record spend
+    if (budgetManager && result) {
+        await budgetManager.recordSpend(activeProvider, costPerImage, {
+            category,
+            traitIndex: index,
+            success: true
+        });
+    }
+    
+    // Compress and cache result
+    if (result && imageCacheManager && compressionManager && cacheKey) {
+        try {
+            const compressedResult = await compressionManager.compressImage(result);
+            await imageCacheManager.set(cacheKey, compressedResult, {
+                category,
+                provider: activeProvider,
+                cost: costPerImage,
+                complexity,
+                colorSeed,
+                index
+            });
+        } catch (error) {
+            console.warn('Failed to cache result:', error);
+        }
+    }
+    
+    return result;
+};
+
+// ===== ENHANCED TRAIT GENERATION WITH SMART REGENERATION =====
+
+// Modify generateAllTraits to use smart regeneration
+const originalGenerateAllTraits = generateAllTraits;
+generateAllTraits = async function() {
+    if (!smartRegenerator || !smartRegenerator.isSmartRegenerationEnabled()) {
+        return await originalGenerateAllTraits();
+    }
+    
+    try {
+        // Detect changes
+        const diffReport = await smartRegenerator.generateDiffReport();
+        
+        if (!diffReport.hasChanges) {
+            showInfoMessage('No configuration changes detected. Skipping regeneration.');
+            return;
+        }
+        
+        // Show diff to user
+        const shouldContinue = await showRegenerationDiff(diffReport);
+        if (!shouldContinue) {
+            return;
+        }
+        
+        // Regenerate only changed categories
+        const regenerationResult = await smartRegenerator.regenerateChanged();
+        
+        if (regenerationResult.regenerated.length === 0) {
+            showInfoMessage('No categories need regeneration.');
+            return;
+        }
+        
+        // Generate traits only for changed categories
+        await generateTraitsForCategories(regenerationResult.regenerated);
+        
+        // Update stored hashes for regenerated categories
+        for (const category of regenerationResult.regenerated) {
+            const newHash = smartRegenerator.generateConfigHash(category);
+            await smartRegenerator.updateStoredHash(category, newHash);
+        }
+        
+        // Populate rarity controls after regeneration
+        populateRarityControls();
+        
+        // Scroll to rarity section
+        setTimeout(() => {
+            document.getElementById('rarityConfig').scrollIntoView({behavior: 'smooth'});
+        }, 500);
+        
+        showSuccessMessage(`Smart regeneration completed: ${regenerationResult.regenerated.length} categories updated, ${regenerationResult.skipped.length} categories reused from cache.`);
+        
+    } catch (error) {
+        console.error('Smart regeneration failed:', error);
+        showErrorMessage('Smart regeneration failed, falling back to full regeneration');
+        await originalGenerateAllTraits();
+    }
+};
+
+// Helper function to generate traits for specific categories only
+async function generateTraitsForCategories(categoriesToGenerate) {
+    const allCategories = ['background', 'body', 'eyes', 'mouth', 'hat'];
+    
+    // Clear AI generation cache for changed categories only
+    if (aiCoordinator && aiCoordinator.clearCache) {
+        aiCoordinator.clearCache();
+    }
+    
+    // Generate traits for specified categories only
+    for (const category of categoriesToGenerate) {
+        if (!allCategories.includes(category)) continue;
+        
+        const config = configCache[category];
+        if (!config) continue;
+        
+        // Clear existing traits for this category
+        globalState[category] = [];
+        rarityState[category] = [];
+        
+        if (config.generationMode === 'procedural' || !configCache.globalStyle.useAIGeneration) {
+            // Synchronous procedural generation
+            await generateProceduralTraits(category, config);
+        } else {
+            // Async AI/Hybrid generation
+            await generateAITraits(category, config);
+        }
+    }
+    
+    console.log(`Generated traits for ${categoriesToGenerate.length} changed categories: ${categoriesToGenerate.join(', ')}`);
+}
+
+async function showRegenerationDiff(diffReport) {
+    const message = `Configuration changes detected:\n\n` +
+        `Categories to regenerate: ${diffReport.categories.filter(c => c.status === 'changed').map(c => c.category).join(', ')}\n` +
+        `Estimated cost: $${diffReport.estimatedCost.total.toFixed(2)}\n` +
+        `Estimated time: ${diffReport.estimatedTime.totalFormatted}\n\n` +
+        `Continue with smart regeneration?`;
+    
+    return confirm(message);
+}
+
+// ===== ENHANCED COLLECTION GENERATION WITH BATCH OPTIMIZATION =====
+
+// Modify generateNFTCollection to use batch optimization
+const originalGenerateNFTCollection = generateNFTCollection;
+generateNFTCollection = async function(collectionSize, collectionName) {
+    if (!batchOptimizer) {
+        return await originalGenerateNFTCollection(collectionSize, collectionName);
+    }
+    
+    try {
+        // Check if AI categories exist and AI generation is enabled
+        const categories = Object.keys(configCache).filter(key => key !== 'globalStyle');
+        const aiCategories = categories.filter(category => 
+            configCache[category].generationMode !== 'procedural' && configCache.globalStyle.useAIGeneration
+        );
+        
+        if (aiCategories.length === 0) {
+            // No AI categories, use original method
+            return await originalGenerateNFTCollection(collectionSize, collectionName);
+        }
+        
+        console.log(`Using batch optimization for collection generation with ${aiCategories.length} AI categories`);
+        
+        // Build array of AI trait requests for batch processing
+        const aiRequests = [];
+        for (const category of aiCategories) {
+            const config = configCache[category];
+            for (let i = 0; i < config.numTraits; i++) {
+                aiRequests.push({
+                    category,
+                    complexity: config.complexity,
+                    colorSeed: config.colorSeed,
+                    index: i,
+                    provider: apiManager.getActiveProviderName(),
+                    prompt: styleEngine.buildPrompt(category, `A ${category} trait`, { complexity: config.complexity })
+                });
+            }
+        }
+        
+        // Process AI requests in batches
+        console.log(`Processing ${aiRequests.length} AI trait requests in batches`);
+        const batchResults = await batchOptimizer.generateBatch(aiRequests, {
+            maxConcurrency: 5,
+            priority: 'medium'
+        });
+        
+        // Map batch results back to trait positions
+        let resultIndex = 0;
+        for (const category of aiCategories) {
+            const config = configCache[category];
+            const categoryTraits = [];
+            
+            for (let i = 0; i < config.numTraits; i++) {
+                const result = batchResults[resultIndex++];
+                if (result && result.success !== false) {
+                    const trait = {
+                        id: generateUniqueId(),
+                        category: category,
+                        dataURL: result,
+                        complexity: config.complexity,
+                        colorSeed: config.colorSeed,
+                        metadata: {
+                            generatedAt: new Date().toISOString(),
+                            index: i,
+                            layerOrder: getLayerOrder(category),
+                            generationMode: config.generationMode,
+                            aiProvider: apiManager.getActiveProviderName()
+                        }
+                    };
+                    categoryTraits.push(trait);
+                }
+            }
+            
+            // Store traits in global state
+            globalState[category] = categoryTraits;
+            displayTraits(category, categoryTraits);
+            initializeRarityState(category);
+        }
+        
+        // Generate procedural traits for non-AI categories
+        const proceduralCategories = categories.filter(category => 
+            configCache[category].generationMode === 'procedural' || !configCache.globalStyle.useAIGeneration
+        );
+        
+        for (const category of proceduralCategories) {
+            await generateProceduralTraits(category, configCache[category]);
+        }
+        
+        // Continue with original collection generation logic using the populated globalState
+        return await originalGenerateNFTCollection(collectionSize, collectionName);
+        
+    } catch (error) {
+        console.error('Batch optimized collection generation failed:', error);
+        return await originalGenerateNFTCollection(collectionSize, collectionName);
+    }
+};
+
+// ===== CONFIGURATION PERSISTENCE FOR NEW SYSTEMS =====
+
+// Extend saveConfiguration to include new settings
+const originalSaveConfiguration = saveConfiguration;
+saveConfiguration = function() {
+    try {
+        // Call original save
+        originalSaveConfiguration();
+        
+        // Save additional cost optimization settings
+        const costOptimizationConfig = {
+            budgets: budgetManager ? budgetManager.currentBudgets : {},
+            compression: compressionManager ? compressionManager.getSettings() : {},
+            batchOptimizer: batchOptimizer ? batchOptimizer.getConfiguration() : {},
+            smartRegeneration: smartRegenerator ? {
+                enabled: smartRegenerator.isSmartRegenerationEnabled()
+            } : {}
+        };
+        
+        localStorage.setItem('nft_generator_cost_optimization', JSON.stringify(costOptimizationConfig));
+        
+    } catch (error) {
+        console.error('Failed to save cost optimization configuration:', error);
+    }
+};
+
+// Extend loadConfiguration to include new settings
+const originalLoadConfiguration = loadConfiguration;
+loadConfiguration = function() {
+    try {
+        // Call original load
+        originalLoadConfiguration();
+        
+        // Load cost optimization settings
+        const saved = localStorage.getItem('nft_generator_cost_optimization');
+        if (saved) {
+            const config = JSON.parse(saved);
+            
+            if (budgetManager && config.budgets) {
+                Object.assign(budgetManager.currentBudgets, config.budgets);
+            }
+            
+            if (compressionManager && config.compression) {
+                compressionManager.updateSettings(config.compression);
+            }
+            
+            if (batchOptimizer && config.batchOptimizer && config.batchOptimizer.maxConcurrency) {
+                batchOptimizer.setMaxConcurrency(config.batchOptimizer.maxConcurrency);
+            }
+            
+            if (smartRegenerator && config.smartRegeneration) {
+                smartRegenerator.setEnabled(config.smartRegeneration.enabled !== false);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Failed to load cost optimization configuration:', error);
+    }
+};
+
+// ===== EVENT LISTENERS FOR COST OPTIMIZATION =====
+
+function setupCostOptimizationEventListeners() {
+    // Budget warning events
+    window.addEventListener('budget:warning', (event) => {
+        const { provider, type, percentage, remaining } = event.detail;
+        showBudgetWarningNotification(provider, type, percentage, remaining);
+    });
+    
+    window.addEventListener('budget:exceeded', (event) => {
+        const { provider, type, limit, spent } = event.detail;
+        showBudgetExceededModal(provider, type, limit, spent);
+    });
+    
+    // Cache events
+    window.addEventListener('cacheManager:stored', (event) => {
+        console.log('Image cached:', event.detail);
+    });
+    
+    // Compression events
+    window.addEventListener('compression:completed', (event) => {
+        const { originalSize, compressedSize, compressionRatio } = event.detail;
+        console.log(`Compression: ${originalSize} → ${compressedSize} bytes (${(compressionRatio * 100).toFixed(1)}%)`);
+    });
+    
+    // Batch optimization events
+    window.addEventListener('batch:progress', (event) => {
+        const { batchId, completed, total } = event.detail;
+        console.log(`Batch ${batchId}: ${completed}/${total} completed`);
+    });
+}
+
+function showBudgetWarningNotification(provider, type, percentage, remaining) {
+    const message = `⚠️ ${provider} ${type} budget at ${percentage.toFixed(1)}% ($${remaining.toFixed(2)} remaining)`;
+    showValidationMessage(message, 'warning');
+}
+
+function showBudgetExceededModal(provider, type, limit, spent) {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'budget-warning-modal';
+    modal.innerHTML = `
+        <div class="budget-warning-content">
+            <div class="budget-warning-header">
+                <div class="budget-warning-icon">⚠️</div>
+                <div class="budget-warning-title">Budget Exceeded</div>
+            </div>
+            <div class="budget-warning-message">
+                Your ${provider} ${type} budget limit of $${limit.toFixed(2)} has been exceeded. 
+                Current spend: $${spent.toFixed(2)}.
+                <br><br>
+                Please adjust your budget limits or reduce API usage to continue.
+            </div>
+            <div class="budget-warning-actions">
+                <button class="btn-cancel" onclick="this.closest('.budget-warning-modal').remove()">Close</button>
+                <button class="btn-primary" onclick="this.closest('.budget-warning-modal').remove(); document.getElementById('${provider}${type.charAt(0).toUpperCase() + type.slice(1)}Budget').focus()">Adjust Budget</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+        if (modal.parentNode) {
+            modal.remove();
+        }
+    }, 10000);
+}
+
+// Initialize event listeners after DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(setupCostOptimizationEventListeners, 2000);
+});

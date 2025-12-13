@@ -379,7 +379,7 @@ class StableDiffusionProvider extends BaseAPIProvider {
     }
     
     getName() {
-        return 'stable_diffusion';
+        return 'stablediffusion';
     }
     
     getRateLimits() {

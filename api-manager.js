@@ -241,7 +241,7 @@ class APIManager {
     
     updateFailoverQueue() {
         // Default order: Stable Diffusion → OpenAI (Gemini excluded due to stub implementation)
-        const defaultOrder = ['stable_diffusion', 'openai', 'gemini'];
+        const defaultOrder = ['stablediffusion', 'openai', 'gemini'];
         
         apiState.failoverQueue = [];
         

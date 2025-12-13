@@ -230,7 +230,7 @@ class ProviderRateLimiters {
         this.defaultLimits = {
             'gemini': { capacity: 60, refillRate: 1, interval: 1000 }, // 60 RPM
             'openai': { capacity: 15, refillRate: 1, interval: 4000 }, // 15 per minute (Tier 5)
-            'stable_diffusion': { capacity: 30, refillRate: 1, interval: 2000 } // 30 per minute
+            'stablediffusion': { capacity: 30, refillRate: 1, interval: 2000 } // 30 per minute
         };
     }
     
