@@ -100,23 +100,10 @@ class GeminiProvider extends BaseAPIProvider {
         // This is a placeholder implementation that generates a canvas-based image
         // TODO: Replace with actual Gemini image generation API when available
         
-        try {
-            // Feature flag to guard against production use
-            if (!options.allowStubImplementation) {
-                throw new ProviderError(this.getName(), 'STUB_IMPLEMENTATION', 
-                    'Gemini image generation is not yet available - this is a placeholder implementation');
-            }
-            
-            // Generate placeholder image with text overlay
-            const imageData = await this.generatePlaceholderImage(prompt, options);
-            
-            this.updateHealthScore(true);
-            return imageData;
-            
-        } catch (error) {
-            this.updateHealthScore(false);
-            throw error;
-        }
+        // Gemini image generation is not yet supported
+        this.updateHealthScore(false);
+        throw new ProviderError(this.getName(), 'NOT_IMPLEMENTED', 
+            'Gemini image generation is not yet available. Please use OpenAI, Stable Diffusion, or Procedural providers.');
     }
     
     async generatePlaceholderImage(prompt, options = {}) {

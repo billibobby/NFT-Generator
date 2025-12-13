@@ -26,7 +26,7 @@
         <!-- AI & Style Configuration Section -->
         <section class="ai-config-section" id="aiConfigSection">
             <div class="ai-config-header">
-                <h2>0. AI & Style Configuration</h2>
+                <h2>0. AI & Style Configuration <span class="section-badge optional">Advanced - Optional</span></h2>
                 <button class="toggle-btn" id="aiConfigToggle" aria-expanded="true" aria-label="Toggle AI configuration">▼</button>
             </div>
             <div class="ai-config-content" id="aiConfigContent">
@@ -34,19 +34,29 @@
                 <!-- API Provider Configuration -->
                 <div class="config-subsection">
                     <h3>API Provider Configuration</h3>
+                    <div class="security-warning" id="securityWarning">
+                        <div class="warning-icon">⚠️</div>
+                        <div class="warning-content">
+                            <strong>Security Notice:</strong> API keys are stored locally in your browser. 
+                            Do not use this tool on shared or public computers. 
+                            <span id="httpsWarning" style="display: none;">
+                                <br><strong>Warning:</strong> You are using HTTP. API keys should only be entered on HTTPS sites.
+                            </span>
+                        </div>
+                    </div>
                     <div class="provider-cards-grid" id="apiProviderCards">
                         
                         <!-- Gemini Provider Card -->
-                        <div class="provider-card" data-provider="gemini">
+                        <div class="provider-card provider-card-disabled" data-provider="gemini">
                             <div class="provider-header">
                                 <div class="provider-logo gemini-logo"></div>
-                                <span class="provider-name">Gemini</span>
+                                <span class="provider-name">Gemini <span class="coming-soon-badge">Coming Soon</span></span>
                             </div>
                             <div class="api-key-input-group">
-                                <input type="password" id="geminiApiKey" class="api-key-input" placeholder="Enter Gemini API key" aria-label="Gemini API key">
-                                <button id="geminiValidateBtn" class="validate-btn">Validate</button>
+                                <input type="password" id="geminiApiKey" class="api-key-input" placeholder="Not available yet" aria-label="Gemini API key" disabled>
+                                <button id="geminiValidateBtn" class="validate-btn" disabled>Validate</button>
                             </div>
-                            <div class="status-indicator" id="geminiStatus">Not configured</div>
+                            <div class="status-indicator" id="geminiStatus">Not available</div>
                             <div class="quota-display" id="geminiQuota" style="display: none;">
                                 <span class="quota-text">Remaining: <span class="quota-remaining">-</span> / <span class="quota-limit">-</span></span>
                                 <div class="quota-progress-bar">
@@ -116,9 +126,9 @@
                     <div class="active-provider-section">
                         <h4>Active Provider</h4>
                         <div class="provider-radio-group" id="activeProviderSelector" role="radiogroup" aria-label="Select active provider">
-                            <label class="provider-radio-label">
-                                <input type="radio" name="activeProvider" value="gemini" id="activeProviderGemini">
-                                <span>Gemini</span>
+                            <label class="provider-radio-label provider-radio-disabled">
+                                <input type="radio" name="activeProvider" value="gemini" id="activeProviderGemini" disabled>
+                                <span>Gemini (Coming Soon)</span>
                             </label>
                             <label class="provider-radio-label">
                                 <input type="radio" name="activeProvider" value="openai" id="activeProviderOpenai">
@@ -351,12 +361,12 @@
                                 </tr>
                             </thead>
                             <tbody id="costBreakdownBody">
-                                <tr class="cost-row" data-provider="gemini">
-                                    <td>Gemini</td>
-                                    <td>$0.039</td>
+                                <tr class="cost-row cost-row-disabled" data-provider="gemini">
+                                    <td>Gemini <span class="coming-soon-badge">Coming Soon</span></td>
+                                    <td>N/A</td>
                                     <td class="ai-categories-count">0</td>
                                     <td class="collection-size-display">100</td>
-                                    <td class="provider-cost">$0.00</td>
+                                    <td class="provider-cost">N/A</td>
                                 </tr>
                                 <tr class="cost-row" data-provider="openai">
                                     <td>OpenAI</td>
@@ -395,7 +405,7 @@
 
                 <!-- Budget Management -->
                 <div class="config-subsection">
-                    <h3>Budget Management</h3>
+                    <h3>Budget Management <span class="section-badge optional">Optional</span></h3>
                     <div class="budget-controls">
                         
                         <!-- Per-provider budget inputs -->

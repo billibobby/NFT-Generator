@@ -1,32 +1,69 @@
 # NFT Generator
 
-A sophisticated web-based NFT collection generator that creates procedural trait layers with configurable rarity weights and batch collection generation.
+A comprehensive web-based NFT collection generator with both local procedural generation and AI-powered trait creation capabilities.
 
-## Features
+## Getting Started (Simple Mode)
 
-### 🎨 Procedural Trait Generation
-- **5 Trait Categories**: Background, Body, Eyes, Mouth, Hat
-- **Complexity Control**: Adjustable complexity levels (1-10) for each trait type
-- **Color Seeding**: Custom color palettes or random generation
-- **Canvas-based Rendering**: High-quality 500x500px trait generation
+For basic NFT generation without AI features:
 
-### ⚖️ Advanced Rarity System
+1. Open `index.html` in your browser
+2. Select "Procedural" as your active provider (no API key required)
+3. Adjust trait complexity sliders and rarity weights as desired
+4. Click "Generate Collection" to create your NFTs
+5. Download the ZIP file containing images and metadata
+
+## Current Architecture
+
+### 🎨 Generation Modes
+- **Procedural (Free)**: Local canvas-based generation with unlimited usage
+- **AI-Powered**: OpenAI and Stable Diffusion integration (requires API keys)
+- **Hybrid**: AI base images with procedural overlays (experimental)
+
+### 🔧 Advanced Features (Optional)
+- **Cost & Budget Management**: Track API costs and set spending limits
+- **Quality Assurance**: Automated outlier detection and regeneration
+- **Analytics Dashboard**: Usage statistics and cost breakdowns
+- **Image Caching**: IndexedDB-based caching for performance
+- **Batch Optimization**: Intelligent request batching and deduplication
+
+### ⚖️ Rarity System
 - **Weighted Random Selection**: Configure individual trait rarity percentages
 - **Rarity Tiers**: Automatic classification (Common, Rare, Epic, Legendary)
 - **Validation System**: Ensures rarity weights sum to 100% per category
 - **Visual Controls**: Interactive sliders with real-time feedback
-
-### 🚀 Batch Collection Generation
-- **Scalable Generation**: Create collections up to 10,000 NFTs
-- **Duplicate Prevention**: Smart algorithm to avoid identical combinations
-- **Layer Compositing**: Proper z-index layering for trait combination
-- **Progress Tracking**: Real-time generation progress with preview updates
 
 ### 📦 Export & Download
 - **ZIP Package**: Complete collection with images and metadata
 - **JSON Metadata**: Standard NFT metadata format with attributes
 - **Rarity Scores**: Calculated rarity scores for each generated NFT
 - **Collection Manifest**: Summary statistics and generation info
+
+## Requirements
+
+### Basic Mode (Procedural Only)
+- Modern web browser with Canvas support
+- No additional setup required
+
+### AI Features
+- Valid API keys for OpenAI and/or Stable Diffusion
+- HTTPS connection (recommended for security)
+- IndexedDB support for caching
+- WebCrypto API for secure key storage
+
+## Security Notice
+
+**⚠️ Important**: This is a client-side application. API keys are stored locally in your browser using encrypted storage when possible. 
+
+**Recommended Usage:**
+- Use on your own computer or trusted device
+- Avoid shared or public computers
+- Use HTTPS when entering API keys
+- Consider using a dedicated API key with spending limits
+
+**Not Suitable For:**
+- Production environments requiring server-side key management
+- Shared hosting or public kiosks
+- High-security enterprise environments
 
 ## Getting Started
 
@@ -125,3 +162,48 @@ This project is open source and available under the [MIT License](LICENSE).
 ---
 
 **Built with ❤️ for the NFT community**
+
+## Provider Status
+
+| Provider | Status | Notes |
+|----------|--------|-------|
+| Procedural | ✅ Fully Supported | Free, unlimited local generation |
+| OpenAI | ✅ Supported | Requires API key, costs apply |
+| Stable Diffusion | ✅ Supported | Requires API key, costs apply |
+| Gemini | 🚧 Coming Soon | Placeholder implementation only |
+
+## Roadmap / Known Limitations
+
+### In Development
+- [ ] Gemini image generation API integration
+- [ ] Batch optimizer result mapping improvements
+- [ ] Advanced failover configuration UI
+- [ ] Server-side API key management option
+
+### Current Limitations
+- Gemini provider is stubbed (not functional)
+- Some advanced features are experimental
+- Client-side storage only (no server backend)
+- Limited to browser-supported image formats
+
+### Architecture Notes
+- Built as a single-page application (SPA)
+- All processing happens in the browser
+- No server-side dependencies
+- Modular design with optional advanced features
+
+## Development
+
+The codebase is organized into focused modules:
+- `app.js` - Core generation logic and UI coordination
+- `api-providers.js` - Provider implementations and base classes
+- `api-manager.js` - Provider management and failover
+- `budget-manager.js` - Cost tracking and spending limits
+- `cost-analytics.js` - Usage analytics and reporting
+- `cache-manager.js` - Image caching and optimization
+- `quality-assurance.js` - Automated quality checks
+- Additional utility modules for specific features
+
+## License
+
+MIT License - see LICENSE file for details.

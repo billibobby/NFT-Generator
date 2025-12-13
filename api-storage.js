@@ -254,11 +254,15 @@ class APIKeyStorage {
     
     // Security check - warn if not HTTPS
     checkSecurityContext() {
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        const isSecure = location.protocol === 'https:' || location.hostname === 'localhost';
+        if (!isSecure) {
             console.warn('API keys should only be stored over HTTPS connections');
-            return false;
+            // Expose security status to UI
+            window.dispatchEvent(new CustomEvent('security:insecure-context', { 
+                detail: { protocol: location.protocol, hostname: location.hostname }
+            }));
         }
-        return true;
+        return isSecure;
     }
 }
 

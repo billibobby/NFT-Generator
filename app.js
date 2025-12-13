@@ -706,11 +706,34 @@ class AIGenerationCoordinator {
 // Create global AI coordinator instance
 const aiCoordinator = new AIGenerationCoordinator();
 
+// ===== SECURITY WARNINGS =====
+
+function initializeSecurityWarnings() {
+    // Check HTTPS status and show warning if needed
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        const httpsWarning = document.getElementById('httpsWarning');
+        if (httpsWarning) {
+            httpsWarning.style.display = 'inline';
+        }
+    }
+    
+    // Listen for security context events
+    window.addEventListener('security:insecure-context', (event) => {
+        const httpsWarning = document.getElementById('httpsWarning');
+        if (httpsWarning) {
+            httpsWarning.style.display = 'inline';
+        }
+    });
+}
+
 // ===== INITIALIZATION =====
 
 document.addEventListener('DOMContentLoaded', async function() {
     initializeDOMReferences();
     initializeSliderListeners();
+    
+    // Initialize security warnings
+    initializeSecurityWarnings();
     initializeGenerateButton();
     initializeCollectionGeneration();
     initializeDownloadButton();

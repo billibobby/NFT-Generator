@@ -789,6 +789,66 @@ section h2 {
     pointer-events: none;
 }
 
+.provider-card-disabled {
+    opacity: 0.7;
+    background: var(--surface);
+}
+
+.coming-soon-badge {
+    background: #f59e0b;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.provider-radio-disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.security-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.warning-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.warning-content {
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.cost-row-disabled {
+    opacity: 0.6;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.section-badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.section-badge.optional {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary-color);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
 .provider-header {
     display: flex;
     align-items: center;
