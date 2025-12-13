@@ -739,6 +739,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     initializeTabNavigation();
     loadActiveTab();
     
+    // Initialize category sub-tabs
+    initializeCategorySubTabs();
+    
+    // Restore last selected category
+    const savedCategory = localStorage.getItem('activeTraitCategory');
+    if (savedCategory && ['background', 'body', 'eyes', 'mouth', 'hat'].includes(savedCategory)) {
+        switchTraitCategory(savedCategory);
+    }
+    
     initializeGenerateButton();
     initializeCollectionGeneration();
     initializeDownloadButton();
@@ -1228,9 +1237,23 @@ function initializeDOMReferences() {
         valueSpans: {},
         colorInputs: {},
         previewContainers: {},
-        generateBtn: document.getElementById('generateTraitsBtn')
+        generateBtn: document.getElementById('generateTraitsBtn'),
+        // Unified controls
+        unifiedControls: {
+            numTraits: document.getElementById('unified-numTraits'),
+            complexity: document.getElementById('unified-complexity'),
+            colorSeed: document.getElementById('unified-colorSeed'),
+            previewContainer: document.getElementById('unified-preview-grid')
+        },
+        unifiedValueSpans: {
+            numTraits: document.getElementById('unified-numTraits-value'),
+            complexity: document.getElementById('unified-complexity-value')
+        },
+        categorySubTabs: document.querySelectorAll('.category-sub-tab'),
+        currentCategory: 'background'
     };
 
+    // Keep existing per-category references for backward compatibility
     categories.forEach(category => {
         // Map 'bg' to 'background' for consistency with global state
         const stateKey = category === 'bg' ? 'background' : category;
@@ -1247,32 +1270,157 @@ function initializeDOMReferences() {
         
         domRefs.colorInputs[stateKey] = document.getElementById(`${category}-colorSeed`);
         
-        // Find preview container within the trait category
-        const traitCategory = document.querySelector(`#${category}-numTraits`).closest('.trait-category');
-        domRefs.previewContainers[stateKey] = traitCategory.querySelector('.trait-preview-container');
+        // Find preview container within the trait category (if it exists)
+        const traitCategory = document.querySelector(`#${category}-numTraits`);
+        if (traitCategory) {
+            const container = traitCategory.closest('.trait-category');
+            if (container) {
+                domRefs.previewContainers[stateKey] = container.querySelector('.trait-preview-container');
+            }
+        }
     });
+}
+
+// ===== CATEGORY SUB-TABS SYSTEM =====
+
+function initializeCategorySubTabs() {
+    const subTabs = domRefs.categorySubTabs;
+    
+    subTabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const category = e.currentTarget.dataset.category;
+            switchTraitCategory(category);
+        });
+    });
+    
+    // Set default active tab
+    switchTraitCategory('background');
+}
+
+function switchTraitCategory(newCategory) {
+    // Save current category's values from unified controls to configCache
+    if (domRefs.currentCategory && domRefs.unifiedControls.numTraits) {
+        configCache[domRefs.currentCategory].numTraits = parseInt(domRefs.unifiedControls.numTraits.value);
+        configCache[domRefs.currentCategory].complexity = parseInt(domRefs.unifiedControls.complexity.value);
+        configCache[domRefs.currentCategory].colorSeed = domRefs.unifiedControls.colorSeed.value;
+    }
+    
+    // Update current category
+    domRefs.currentCategory = newCategory;
+    
+    // Update sub-tab active states
+    domRefs.categorySubTabs.forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.category === newCategory) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // Load new category into unified controls
+    loadCategoryIntoUnifiedControls(newCategory);
+    
+    // Save to localStorage
+    localStorage.setItem('activeTraitCategory', newCategory);
+    
+    // Dispatch custom event
+    window.dispatchEvent(new CustomEvent('category:switched', {
+        detail: { category: newCategory }
+    }));
+}
+
+function loadCategoryIntoUnifiedControls(category) {
+    if (!domRefs.unifiedControls.numTraits) return;
+    
+    // Get values from configCache
+    const config = configCache[category];
+    
+    // Update unified controls
+    domRefs.unifiedControls.numTraits.value = config.numTraits;
+    domRefs.unifiedControls.complexity.value = config.complexity;
+    domRefs.unifiedControls.colorSeed.value = config.colorSeed || '';
+    
+    // Update value spans
+    domRefs.unifiedValueSpans.numTraits.textContent = config.numTraits;
+    domRefs.unifiedValueSpans.complexity.textContent = config.complexity;
+    
+    // Load preview images for the category
+    loadPreviewForCategory(category);
+}
+
+function loadPreviewForCategory(category) {
+    const previewContainer = domRefs.unifiedControls.previewContainer;
+    if (!previewContainer) return;
+    
+    // Clear existing previews
+    previewContainer.innerHTML = '';
+    
+    // Load traits for this category if they exist
+    const traits = globalState[category];
+    if (traits && traits.length > 0) {
+        traits.forEach((trait, index) => {
+            const img = document.createElement('img');
+            img.src = trait;
+            img.alt = `${category} trait ${index + 1}`;
+            img.title = `${category} trait ${index + 1}`;
+            previewContainer.appendChild(img);
+        });
+    } else {
+        // Show placeholder message
+        const placeholder = document.createElement('div');
+        placeholder.className = 'preview-placeholder';
+        placeholder.textContent = `No ${category} traits generated yet. Click "Generate Traits" to create them.`;
+        previewContainer.appendChild(placeholder);
+    }
 }
 
 // ===== SLIDER VALUE SYNCHRONIZATION =====
 
 function initializeSliderListeners() {
+    // Initialize unified controls listeners
+    if (domRefs.unifiedControls.numTraits) {
+        domRefs.unifiedControls.numTraits.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            domRefs.unifiedValueSpans.numTraits.textContent = value;
+            configCache[domRefs.currentCategory].numTraits = value;
+        });
+    }
+    
+    if (domRefs.unifiedControls.complexity) {
+        domRefs.unifiedControls.complexity.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            domRefs.unifiedValueSpans.complexity.textContent = value;
+            configCache[domRefs.currentCategory].complexity = value;
+        });
+    }
+    
+    if (domRefs.unifiedControls.colorSeed) {
+        domRefs.unifiedControls.colorSeed.addEventListener('input', (e) => {
+            configCache[domRefs.currentCategory].colorSeed = e.target.value;
+        });
+    }
+    
+    // Keep existing per-category listeners for backward compatibility
     const categories = Object.keys(configCache);
     
     categories.forEach(category => {
         // Number of traits slider
-        if (domRefs.sliders[category].numTraits) {
+        if (domRefs.sliders[category] && domRefs.sliders[category].numTraits) {
             domRefs.sliders[category].numTraits.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
-                domRefs.valueSpans[category].numTraits.textContent = value;
+                if (domRefs.valueSpans[category] && domRefs.valueSpans[category].numTraits) {
+                    domRefs.valueSpans[category].numTraits.textContent = value;
+                }
                 configCache[category].numTraits = value;
             });
         }
         
         // Complexity slider
-        if (domRefs.sliders[category].complexity) {
+        if (domRefs.sliders[category] && domRefs.sliders[category].complexity) {
             domRefs.sliders[category].complexity.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
-                domRefs.valueSpans[category].complexity.textContent = value;
+                if (domRefs.valueSpans[category] && domRefs.valueSpans[category].complexity) {
+                    domRefs.valueSpans[category].complexity.textContent = value;
+                }
                 configCache[category].complexity = value;
             });
         }

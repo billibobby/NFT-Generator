@@ -182,6 +182,271 @@ body {
     }
 }
 
+/* ===== UNIFIED TRAIT GENERATION INTERFACE ===== */
+
+/* Category Sub-Tabs */
+.category-sub-tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: -1px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) transparent;
+}
+
+.category-sub-tabs::-webkit-scrollbar {
+    height: 3px;
+}
+
+.category-sub-tabs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.category-sub-tabs::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 2px;
+}
+
+.category-sub-tab {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    min-width: 80px;
+}
+
+.category-sub-tab:hover {
+    background: rgba(99, 102, 241, 0.05);
+    color: var(--text-primary);
+}
+
+.category-sub-tab.active {
+    background: var(--primary-color);
+    color: white;
+    border-bottom: 1px solid var(--primary-color);
+    font-weight: 600;
+}
+
+/* Trait Controls Container */
+.trait-controls-container {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 0 var(--border-radius) var(--border-radius) var(--border-radius);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.trait-controls-container h3 {
+    margin-top: 0;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+/* Unified Preview Container */
+.unified-preview-container {
+    margin-top: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: var(--surface);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
+}
+
+.unified-preview-container h4 {
+    margin-top: 0;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+}
+
+.trait-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: var(--spacing-sm);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.trait-preview-grid img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
+}
+
+/* Generation Mode Section */
+.generation-mode-section {
+    background: var(--surface);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.generation-mode-section h3 {
+    margin-top: 0;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+/* Generation Mode Table */
+.generation-mode-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--spacing-md) 0;
+    background: var(--background);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.generation-mode-table th {
+    background: var(--primary-color);
+    color: white;
+    padding: var(--spacing-md);
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.generation-mode-table td {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.generation-mode-table tr:hover {
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.generation-mode-table tr:last-child td {
+    border-bottom: none;
+}
+
+.generation-mode-table .category-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 100px;
+}
+
+.mode-radio-cell {
+    text-align: center;
+    width: 25%;
+}
+
+.mode-radio-cell input[type="radio"] {
+    margin-right: var(--spacing-sm);
+}
+
+.mode-radio-cell label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.mode-radio-cell input[type="radio"]:checked + label {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* Generate Traits Section */
+.generate-traits-section {
+    text-align: center;
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .category-sub-tabs {
+        padding: 0 var(--spacing-sm);
+    }
+    
+    .category-sub-tab {
+        min-width: 70px;
+        font-size: 0.8rem;
+        padding: var(--spacing-sm);
+    }
+    
+    .generation-mode-table {
+        font-size: 0.8rem;
+    }
+    
+    .generation-mode-table th,
+    .generation-mode-table td {
+        padding: var(--spacing-sm);
+    }
+    
+    .trait-preview-grid {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    }
+    
+    .trait-preview-grid img {
+        height: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .generation-mode-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .generation-mode-table thead,
+    .generation-mode-table tbody,
+    .generation-mode-table th,
+    .generation-mode-table td,
+    .generation-mode-table tr {
+        display: block;
+    }
+    
+    .generation-mode-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+    
+    .generation-mode-table tr {
+        border: 1px solid var(--border);
+        margin-bottom: var(--spacing-sm);
+        border-radius: var(--border-radius);
+        padding: var(--spacing-sm);
+    }
+    
+    .generation-mode-table td {
+        border: none;
+        position: relative;
+        padding-left: 30%;
+        padding-bottom: var(--spacing-sm);
+    }
+    
+    .generation-mode-table td:before {
+        content: attr(data-label);
+        position: absolute;
+        left: 6px;
+        width: 25%;
+        padding-right: 10px;
+        white-space: nowrap;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .mode-radio-cell {
+        text-align: left;
+    }
+}
+
 /* Section Base Styles */
 section {
     background-color: var(--surface);

@@ -46,11 +46,621 @@
 
         <!-- Tab Content Containers -->
         <div class="tab-content" id="config-content" role="tabpanel" aria-labelledby="tab-config" style="display: block;">
-            <!-- Configuration content will go here -->
+            <!-- AI & Style Configuration Section -->
+            <section class="ai-config-section" id="aiConfigSection">
+                <div class="ai-config-header">
+                    <h2>0. AI & Style Configuration <span class="section-badge optional">Advanced - Optional</span></h2>
+                    <button class="toggle-btn" id="aiConfigToggle" aria-expanded="true" aria-label="Toggle AI configuration">▼</button>
+                </div>
+                <div class="ai-config-content" id="aiConfigContent">
+                    
+                    <!-- API Provider Configuration -->
+                    <div class="config-subsection">
+                        <h3>API Provider Configuration</h3>
+                        <div class="security-warning" id="securityWarning">
+                            <div class="warning-icon">⚠️</div>
+                            <div class="warning-content">
+                                <strong>Security Notice:</strong> API keys are stored locally in your browser. 
+                                Do not use this tool on shared or public computers. 
+                                <span id="httpsWarning" style="display: none;">
+                                    <br><strong>Warning:</strong> You are using HTTP. API keys should only be entered on HTTPS sites.
+                                </span>
+                            </div>
+                        </div>
+                        <div class="provider-cards-grid" id="apiProviderCards">
+                            
+                            <!-- Gemini Provider Card -->
+                            <div class="provider-card provider-card-disabled" data-provider="gemini">
+                                <div class="provider-header">
+                                    <div class="provider-logo gemini-logo"></div>
+                                    <span class="provider-name">Gemini <span class="coming-soon-badge">Coming Soon</span></span>
+                                </div>
+                                <div class="api-key-input-group">
+                                    <input type="password" id="geminiApiKey" class="api-key-input" placeholder="Not available yet" aria-label="Gemini API key" disabled>
+                                    <button id="geminiValidateBtn" class="validate-btn" disabled>Validate</button>
+                                </div>
+                                <div class="status-indicator" id="geminiStatus">Not available</div>
+                                <div class="quota-display" id="geminiQuota" style="display: none;">
+                                    <span class="quota-text">Remaining: <span class="quota-remaining">-</span> / <span class="quota-limit">-</span></span>
+                                    <div class="quota-progress-bar">
+                                        <div class="quota-progress-fill" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="cost-badge">$0.039 per image</div>
+                                <button class="remove-key-btn" id="geminiRemoveBtn" style="display: none;">Remove Key</button>
+                            </div>
+
+                            <!-- OpenAI Provider Card -->
+                            <div class="provider-card" data-provider="openai">
+                                <div class="provider-header">
+                                    <div class="provider-logo openai-logo"></div>
+                                    <span class="provider-name">OpenAI</span>
+                                </div>
+                                <div class="api-key-input-group">
+                                    <input type="password" id="openaiApiKey" class="api-key-input" placeholder="Enter OpenAI API key" aria-label="OpenAI API key">
+                                    <button id="openaiValidateBtn" class="validate-btn">Validate</button>
+                                </div>
+                                <div class="status-indicator" id="openaiStatus">Not configured</div>
+                                <div class="quota-display" id="openaiQuota" style="display: none;">
+                                    <span class="quota-text">Remaining: <span class="quota-remaining">-</span> / <span class="quota-limit">-</span></span>
+                                    <div class="quota-progress-bar">
+                                        <div class="quota-progress-fill" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="cost-badge">$0.080 per image</div>
+                                <button class="remove-key-btn" id="openaiRemoveBtn" style="display: none;">Remove Key</button>
+                            </div>
+
+                            <!-- Stable Diffusion Provider Card -->
+                            <div class="provider-card" data-provider="stablediffusion">
+                                <div class="provider-header">
+                                    <div class="provider-logo stablediffusion-logo"></div>
+                                    <span class="provider-name">Stable Diffusion</span>
+                                </div>
+                                <div class="api-key-input-group">
+                                    <input type="password" id="stableDiffusionApiKey" class="api-key-input" placeholder="Enter Stable Diffusion API key" aria-label="Stable Diffusion API key">
+                                    <button id="stableDiffusionValidateBtn" class="validate-btn">Validate</button>
+                                </div>
+                                <div class="status-indicator" id="stableDiffusionStatus">Not configured</div>
+                                <div class="quota-display" id="stableDiffusionQuota" style="display: none;">
+                                    <span class="quota-text">Remaining: <span class="quota-remaining">-</span> / <span class="quota-limit">-</span></span>
+                                    <div class="quota-progress-bar">
+                                        <div class="quota-progress-fill" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="cost-badge">$0.050 per image</div>
+                                <button class="remove-key-btn" id="stableDiffusionRemoveBtn" style="display: none;">Remove Key</button>
+                            </div>
+
+                            <!-- Procedural Provider Card -->
+                            <div class="provider-card" data-provider="procedural">
+                                <div class="provider-header">
+                                    <div class="provider-logo procedural-logo" data-provider="P"></div>
+                                    <span class="provider-name">Procedural (Free)</span>
+                                </div>
+                                <p class="help-text no-api-message">No API key required</p>
+                                <div class="status-indicator valid" id="proceduralStatus">Ready</div>
+                                <div class="cost-badge cost-badge-free">Free</div>
+                            </div>
+                        </div>
+                    </div>
+
+                        <!-- Active Provider Selector -->
+                        <div class="active-provider-section">
+                            <h4>Active Provider</h4>
+                            <div class="provider-radio-group" id="activeProviderSelector" role="radiogroup" aria-label="Select active provider">
+                                <label class="provider-radio-label provider-radio-disabled">
+                                    <input type="radio" name="activeProvider" value="gemini" id="activeProviderGemini" disabled>
+                                    <span>Gemini (Coming Soon)</span>
+                                </label>
+                                <label class="provider-radio-label">
+                                    <input type="radio" name="activeProvider" value="openai" id="activeProviderOpenai">
+                                    <span>OpenAI</span>
+                                </label>
+                                <label class="provider-radio-label">
+                                    <input type="radio" name="activeProvider" value="stablediffusion" id="activeProviderStableDiffusion">
+                                    <span>Stable Diffusion</span>
+                                </label>
+                                <label class="provider-radio-label">
+                                    <input type="radio" name="activeProvider" value="procedural" id="activeProviderProcedural">
+                                    <span>Procedural</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Export/Import Configuration -->
+                        <div class="config-actions">
+                            <button id="exportConfigBtn" class="action-btn">Export Config</button>
+                            <button id="importConfigBtn" class="action-btn">Import Config</button>
+                        </div>
+                    </div>
+
+                    <!-- Master Style Configuration -->
+                    <div class="config-subsection">
+                        <h3>Master Style Configuration</h3>
+                        <div class="style-config-grid">
+                            
+                            <!-- Style Preset Selector -->
+                            <div class="form-group">
+                                <label for="stylePresetDropdown">Style Preset</label>
+                                <select id="stylePresetDropdown" class="style-preset-selector" aria-label="Select style preset">
+                                    <option value="">Custom</option>
+                                    <option value="cyberpunk">Cyberpunk</option>
+                                    <option value="medieval">Medieval Fantasy</option>
+                                    <option value="minimalist">Minimalist</option>
+                                    <option value="retro">Retro 80s</option>
+                                    <option value="organic">Organic Nature</option>
+                                    <option value="abstract">Abstract Art</option>
+                                </select>
+                            </div>
+
+                            <!-- Master Style Prompt -->
+                            <div class="form-group">
+                                <label for="masterStylePrompt">Master Style Prompt</label>
+                                <textarea id="masterStylePrompt" class="master-prompt-textarea" placeholder="e.g., cyberpunk neon art with glowing edges" maxlength="500" aria-label="Master style prompt"></textarea>
+                                <div class="char-counter"><span id="promptCharCount">0</span>/500</div>
+                            </div>
+
+                            <!-- Inheritance Level -->
+                            <div class="form-group">
+                                <label>Inheritance Level</label>
+                                <div class="inheritance-level-group" id="inheritanceLevel" role="radiogroup" aria-label="Select inheritance level">
+                                    <label class="inheritance-radio-label">
+                                        <input type="radio" name="inheritanceLevel" value="strict">
+                                        <span>Strict</span>
+                                    </label>
+                                    <label class="inheritance-radio-label">
+                                        <input type="radio" name="inheritanceLevel" value="moderate" checked>
+                                        <span>Moderate</span>
+                                    </label>
+                                    <label class="inheritance-radio-label">
+                                        <input type="radio" name="inheritanceLevel" value="loose">
+                                        <span>Loose</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Global Negative Prompts -->
+                            <div class="form-group">
+                                <label for="globalNegativePrompts">Global Negative Prompts</label>
+                                <textarea id="globalNegativePrompts" class="negative-prompts-textarea" placeholder="e.g., blurry, low quality, distorted" aria-label="Global negative prompts"></textarea>
+                            </div>
+
+                            <!-- Color Palette Lock -->
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="colorPaletteLock">
+                                    <span>Lock Color Palette</span>
+                                </label>
+                                <div class="color-palette-grid" id="colorPaletteGrid">
+                                    <input type="color" class="color-picker-item" data-index="0" value="#6366f1" aria-label="Color 1">
+                                    <input type="color" class="color-picker-item" data-index="1" value="#8b5cf6" aria-label="Color 2">
+                                    <input type="color" class="color-picker-item" data-index="2" value="#06b6d4" aria-label="Color 3">
+                                    <input type="color" class="color-picker-item" data-index="3" value="#10b981" aria-label="Color 4">
+                                    <input type="color" class="color-picker-item" data-index="4" value="#f59e0b" aria-label="Color 5">
+                                </div>
+                            </div>
+
+                            <!-- Preview Button -->
+                            <div class="form-group">
+                                <button id="previewStyleBtn" class="action-btn">Preview Style Prompt</button>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Cost Estimation -->
+                    <div class="config-subsection">
+                        <h3>Cost Estimation</h3>
+                        <div class="cost-estimator" id="costEstimator">
+                            
+                            <!-- Collection Size Input -->
+                            <div class="cost-input-group">
+                                <label for="costCollectionSize">Collection Size</label>
+                                <input type="number" id="costCollectionSize" min="1" max="10000" value="100" aria-label="Collection size for cost estimation">
+                            </div>
+
+                            <!-- Cost Breakdown Table -->
+                            <table class="cost-breakdown-table">
+                                <thead>
+                                    <tr>
+                                        <th>Provider</th>
+                                        <th>Cost/Image</th>
+                                        <th>AI Categories</th>
+                                        <th>Collection Size</th>
+                                        <th>Total Cost</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="costBreakdownBody">
+                                    <tr class="cost-row cost-row-disabled" data-provider="gemini">
+                                        <td>Gemini <span class="coming-soon-badge">Coming Soon</span></td>
+                                        <td>N/A</td>
+                                        <td class="ai-categories-count">0</td>
+                                        <td class="collection-size-display">100</td>
+                                        <td class="provider-cost">N/A</td>
+                                    </tr>
+                                    <tr class="cost-row" data-provider="openai">
+                                        <td>OpenAI</td>
+                                        <td>$0.080</td>
+                                        <td class="ai-categories-count">0</td>
+                                        <td class="collection-size-display">100</td>
+                                        <td class="provider-cost">$0.00</td>
+                                    </tr>
+                                    <tr class="cost-row" data-provider="stablediffusion">
+                                        <td>Stable Diffusion</td>
+                                        <td>$0.050</td>
+                                        <td class="ai-categories-count">0</td>
+                                        <td class="collection-size-display">100</td>
+                                        <td class="provider-cost">$0.00</td>
+                                    </tr>
+                                    <tr class="cost-row" data-provider="procedural">
+                                        <td>Procedural (Free)</td>
+                                        <td><span class="cost-badge-free">Free</span></td>
+                                        <td class="ai-categories-count">0</td>
+                                        <td class="collection-size-display">100</td>
+                                        <td class="provider-cost">$0.00</td>
+                                    </tr>
+                                    <tr class="cost-total">
+                                        <td colspan="4"><strong>Estimated Total (Active Provider)</strong></td>
+                                        <td><strong id="estimatedCost">$0.00</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <!-- Cost Warning -->
+                            <div class="cost-warning" id="costWarning" style="display: none;">
+                                ⚠️ Estimated cost exceeds $10. Consider reducing collection size or disabling AI for some categories.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Budget Management -->
+                    <div class="config-subsection">
+                        <h3>Budget Management <span class="section-badge optional">Optional</span></h3>
+                        <div class="budget-controls">
+                            
+                            <!-- Per-provider budget inputs -->
+                            <div class="budget-provider-grid">
+                                <div class="budget-provider-row" data-provider="gemini">
+                                    <div class="provider-info">
+                                        <span class="provider-name">Gemini</span>
+                                        <span class="provider-cost">$0.039/image</span>
+                                    </div>
+                                    <div class="budget-inputs">
+                                        <div class="budget-input-group">
+                                            <label for="geminiDailyBudget">Daily Limit</label>
+                                            <input type="number" id="geminiDailyBudget" min="0" step="0.01" value="5.00" aria-label="Gemini daily budget limit">
+                                        </div>
+                                        <div class="budget-input-group">
+                                            <label for="geminiMonthlyBudget">Monthly Limit</label>
+                                            <input type="number" id="geminiMonthlyBudget" min="0" step="0.01" value="50.00" aria-label="Gemini monthly budget limit">
+                                        </div>
+                                    </div>
+                                    <div class="budget-status">
+                                        <div class="budget-remaining">
+                                            <span class="budget-label">Daily Remaining:</span>
+                                            <span class="budget-value" id="geminiDailyRemaining">$5.00</span>
+                                        </div>
+                                        <div class="budget-progress">
+                                            <div class="budget-progress-bar">
+                                                <div class="budget-progress-fill" id="geminiDailyProgress" style="width: 0%"></div>
+                                            </div>
+                                            <span class="budget-percentage" id="geminiDailyPercentage">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="budget-provider-row" data-provider="openai">
+                                    <div class="provider-info">
+                                        <span class="provider-name">OpenAI</span>
+                                        <span class="provider-cost">$0.080/image</span>
+                                    </div>
+                                    <div class="budget-inputs">
+                                        <div class="budget-input-group">
+                                            <label for="openaiDailyBudget">Daily Limit</label>
+                                            <input type="number" id="openaiDailyBudget" min="0" step="0.01" value="10.00" aria-label="OpenAI daily budget limit">
+                                        </div>
+                                        <div class="budget-input-group">
+                                            <label for="openaiMonthlyBudget">Monthly Limit</label>
+                                            <input type="number" id="openaiMonthlyBudget" min="0" step="0.01" value="100.00" aria-label="OpenAI monthly budget limit">
+                                        </div>
+                                    </div>
+                                    <div class="budget-status">
+                                        <div class="budget-remaining">
+                                            <span class="budget-label">Daily Remaining:</span>
+                                            <span class="budget-value" id="openaiDailyRemaining">$10.00</span>
+                                        </div>
+                                        <div class="budget-progress">
+                                            <div class="budget-progress-bar">
+                                                <div class="budget-progress-fill" id="openaiDailyProgress" style="width: 0%"></div>
+                                            </div>
+                                            <span class="budget-percentage" id="openaiDailyPercentage">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="budget-provider-row" data-provider="stablediffusion">
+                                    <div class="provider-info">
+                                        <span class="provider-name">Stable Diffusion</span>
+                                        <span class="provider-cost">$0.050/image</span>
+                                    </div>
+                                    <div class="budget-inputs">
+                                        <div class="budget-input-group">
+                                            <label for="stablediffusionDailyBudget">Daily Limit</label>
+                                            <input type="number" id="stablediffusionDailyBudget" min="0" step="0.01" value="7.50" aria-label="Stable Diffusion daily budget limit">
+                                        </div>
+                                        <div class="budget-input-group">
+                                            <label for="stablediffusionMonthlyBudget">Monthly Limit</label>
+                                            <input type="number" id="stablediffusionMonthlyBudget" min="0" step="0.01" value="75.00" aria-label="Stable Diffusion monthly budget limit">
+                                        </div>
+                                    </div>
+                                    <div class="budget-status">
+                                        <div class="budget-remaining">
+                                            <span class="budget-label">Daily Remaining:</span>
+                                            <span class="budget-value" id="stablediffusionDailyRemaining">$7.50</span>
+                                        </div>
+                                        <div class="budget-progress">
+                                            <div class="budget-progress-bar">
+                                                <div class="budget-progress-fill" id="stablediffusionDailyProgress" style="width: 0%"></div>
+                                            </div>
+                                            <span class="budget-percentage" id="stablediffusionDailyPercentage">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Global budget cap -->
+                            <div class="budget-global">
+                                <div class="form-group">
+                                    <label for="globalMonthlyBudget">Global Monthly Budget</label>
+                                    <input type="number" id="globalMonthlyBudget" min="0" step="1" value="200.00" aria-label="Global monthly budget limit">
+                                </div>
+                                <div class="global-budget-status">
+                                    <span class="budget-label">Monthly Remaining:</span>
+                                    <span class="budget-value" id="globalMonthlyRemaining">$200.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Warning thresholds -->
+                            <div class="budget-thresholds">
+                                <div class="form-group">
+                                    <label for="budgetWarningThreshold">Warning Threshold</label>
+                                    <select id="budgetWarningThreshold" aria-label="Budget warning threshold">
+                                        <option value="50">50%</option>
+                                        <option value="75" selected>75%</option>
+                                        <option value="90">90%</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cost Analytics Dashboard -->
+                    <div class="config-subsection">
+                        <h3>Cost Analytics</h3>
+                        <div class="analytics-dashboard">
+                            
+                            <!-- Summary cards -->
+                            <div class="analytics-summary">
+                                <div class="stat-card">
+                                    <span class="stat-label">Total Spend</span>
+                                    <span class="stat-value" id="totalSpend">$0.00</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-label">Images Generated</span>
+                                    <span class="stat-value" id="totalImages">0</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-label">Avg Cost/Image</span>
+                                    <span class="stat-value" id="avgCost">$0.00</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-label">Cache Savings</span>
+                                    <span class="stat-value" id="cacheSavings">$0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Charts -->
+                            <div class="analytics-charts">
+                                <div class="chart-container">
+                                    <h4>Spend Trend (Last 30 Days)</h4>
+                                    <canvas id="spendTrendChart" width="600" height="300" aria-label="Spend trend chart"></canvas>
+                                </div>
+                                <div class="chart-container">
+                                    <h4>Provider Breakdown</h4>
+                                    <canvas id="providerBreakdownChart" width="300" height="300" aria-label="Provider breakdown chart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Transaction table -->
+                            <div class="analytics-table">
+                                <h4>Recent Transactions</h4>
+                                <div class="table-container">
+                                    <table id="transactionTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Provider</th>
+                                                <th>Category</th>
+                                                <th>Cost</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="transactionTableBody">
+                                            <tr>
+                                                <td colspan="5" class="no-data">No transactions yet</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Export button -->
+                            <div class="analytics-actions">
+                                <button id="exportAnalyticsBtn" class="btn-secondary">Export Report</button>
+                                <button id="clearAnalyticsBtn" class="btn-secondary">Clear Data</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
         </div>
 
         <div class="tab-content" id="trait-generation-content" role="tabpanel" aria-labelledby="tab-trait-generation" style="display: none;">
-            <!-- Trait generation content will go here -->
+            <!-- Category Sub-Tabs Navigation -->
+            <div class="category-sub-tabs">
+                <button class="category-sub-tab active" data-category="background">Background</button>
+                <button class="category-sub-tab" data-category="body">Body</button>
+                <button class="category-sub-tab" data-category="eyes">Eyes</button>
+                <button class="category-sub-tab" data-category="mouth">Mouth</button>
+                <button class="category-sub-tab" data-category="hat">Hat</button>
+            </div>
+
+            <!-- Unified Trait Controls -->
+            <div class="trait-controls-container">
+                <h3>Trait Controls</h3>
+                
+                <!-- Number of Traits Slider -->
+                <div class="form-group">
+                    <label for="unified-numTraits">Number of Traits: <span id="unified-numTraits-value">10</span></label>
+                    <input type="range" id="unified-numTraits" class="slider" min="1" max="50" value="10" aria-label="Number of traits">
+                </div>
+
+                <!-- Complexity Slider -->
+                <div class="form-group">
+                    <label for="unified-complexity">Complexity Level: <span id="unified-complexity-value">5</span></label>
+                    <input type="range" id="unified-complexity" class="slider" min="1" max="10" value="5" aria-label="Complexity level">
+                </div>
+
+                <!-- Color Seed Input -->
+                <div class="form-group">
+                    <label for="unified-colorSeed">Color Seed</label>
+                    <input type="text" id="unified-colorSeed" class="color-seed-input" placeholder="e.g., random, warm, cool, or HSL(240,50,50)" aria-label="Color seed">
+                </div>
+
+                <!-- Preview Container -->
+                <div class="unified-preview-container">
+                    <h4>Preview</h4>
+                    <div class="trait-preview-grid" id="unified-preview-grid">
+                        <!-- Preview images will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generation Mode Configuration -->
+            <div class="generation-mode-section">
+                <h3>Generation Mode Configuration</h3>
+                
+                <!-- Global AI Toggle -->
+                <div class="global-ai-toggle">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="globalAiToggle">
+                        <span>Use AI Generation</span>
+                    </label>
+                    <p class="help-text">Enable AI-powered trait generation. When disabled, all categories use procedural generation.</p>
+                </div>
+
+                <!-- Generation Mode Table -->
+                <table class="generation-mode-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Procedural</th>
+                            <th>AI</th>
+                            <th>Hybrid</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="category-label">Background</td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="bgMode" value="procedural" id="bg-procedural" checked>
+                                <label for="bg-procedural">Procedural</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="bgMode" value="ai" id="bg-ai">
+                                <label for="bg-ai">AI</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="bgMode" value="hybrid" id="bg-hybrid">
+                                <label for="bg-hybrid">Hybrid</label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="category-label">Body</td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="bodyMode" value="procedural" id="body-procedural" checked>
+                                <label for="body-procedural">Procedural</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="bodyMode" value="ai" id="body-ai">
+                                <label for="body-ai">AI</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="bodyMode" value="hybrid" id="body-hybrid">
+                                <label for="body-hybrid">Hybrid</label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="category-label">Eyes</td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="eyesMode" value="procedural" id="eyes-procedural" checked>
+                                <label for="eyes-procedural">Procedural</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="eyesMode" value="ai" id="eyes-ai">
+                                <label for="eyes-ai">AI</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="eyesMode" value="hybrid" id="eyes-hybrid">
+                                <label for="eyes-hybrid">Hybrid</label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="category-label">Mouth</td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="mouthMode" value="procedural" id="mouth-procedural" checked>
+                                <label for="mouth-procedural">Procedural</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="mouthMode" value="ai" id="mouth-ai">
+                                <label for="mouth-ai">AI</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="mouthMode" value="hybrid" id="mouth-hybrid">
+                                <label for="mouth-hybrid">Hybrid</label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="category-label">Hat</td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="hatMode" value="procedural" id="hat-procedural" checked>
+                                <label for="hat-procedural">Procedural</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="hatMode" value="ai" id="hat-ai">
+                                <label for="hat-ai">AI</label>
+                            </td>
+                            <td class="mode-radio-cell">
+                                <input type="radio" name="hatMode" value="hybrid" id="hat-hybrid">
+                                <label for="hat-hybrid">Hybrid</label>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Hybrid Opacity Slider -->
+                <div class="hybrid-opacity-section">
+                    <label for="hybridOpacity">Hybrid Overlay Opacity: <span id="hybridOpacityValue">40</span>%</label>
+                    <input type="range" id="hybridOpacity" min="0" max="100" value="40" class="slider" aria-label="Hybrid overlay opacity">
+                </div>
+
+                <!-- Generate Traits Button -->
+                <div class="generate-traits-section">
+                    <button type="button" class="btn-primary" id="generateTraitsBtn">Generate Traits</button>
+                </div>
+            </div>
         </div>
 
         <div class="tab-content" id="rarity-collection-content" role="tabpanel" aria-labelledby="tab-rarity-collection" style="display: none;">
@@ -65,577 +675,7 @@
             <!-- Quality assurance content will go here -->
         </div>
 
-        <!-- AI & Style Configuration Section -->
-        <section class="ai-config-section" id="aiConfigSection">
-            <div class="ai-config-header">
-                <h2>0. AI & Style Configuration <span class="section-badge optional">Advanced - Optional</span></h2>
-                <button class="toggle-btn" id="aiConfigToggle" aria-expanded="true" aria-label="Toggle AI configuration">▼</button>
-            </div>
-            <div class="ai-config-content" id="aiConfigContent">
-                
-                <!-- API Provider Configuration -->
-                <div class="config-subsection">
-                    <h3>API Provider Configuration</h3>
-                    <div class="security-warning" id="securityWarning">
-                        <div class="warning-icon">⚠️</div>
-                        <div class="warning-content">
-                            <strong>Security Notice:</strong> API keys are stored locally in your browser. 
-                            Do not use this tool on shared or public computers. 
-                            <span id="httpsWarning" style="display: none;">
-                                <br><strong>Warning:</strong> You are using HTTP. API keys should only be entered on HTTPS sites.
-                            </span>
-                        </div>
-                    </div>
-                    <div class="provider-cards-grid" id="apiProviderCards">
-                        
-                        <!-- Gemini Provider Card -->
-                        <div class="provider-card provider-card-disabled" data-provider="gemini">
-                            <div class="provider-header">
-                                <div class="provider-logo gemini-logo"></div>
-                                <span class="provider-name">Gemini <span class="coming-soon-badge">Coming Soon</span></span>
-                            </div>
-                            <div class="api-key-input-group">
-                                <input type="password" id="geminiApiKey" class="api-key-input" placeholder="Not available yet" aria-label="Gemini API key" disabled>
-                                <button id="geminiValidateBtn" class="validate-btn" disabled>Validate</button>
-                            </div>
-                            <div class="status-indicator" id="geminiStatus">Not available</div>
-                            <div class="quota-display" id="geminiQuota" style="display: none;">
-                                <span class="quota-text">Remaining: <span class="quota-remaining">-</span> / <span class="quota-limit">-</span></span>
-                                <div class="quota-progress-bar">
-                                    <div class="quota-progress-fill" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div class="cost-badge">$0.039 per image</div>
-                            <button class="remove-key-btn" id="geminiRemoveBtn" style="display: none;">Remove Key</button>
-                        </div>
 
-                        <!-- OpenAI Provider Card -->
-                        <div class="provider-card" data-provider="openai">
-                            <div class="provider-header">
-                                <div class="provider-logo openai-logo"></div>
-                                <span class="provider-name">OpenAI</span>
-                            </div>
-                            <div class="api-key-input-group">
-                                <input type="password" id="openaiApiKey" class="api-key-input" placeholder="Enter OpenAI API key" aria-label="OpenAI API key">
-                                <button id="openaiValidateBtn" class="validate-btn">Validate</button>
-                            </div>
-                            <div class="status-indicator" id="openaiStatus">Not configured</div>
-                            <div class="quota-display" id="openaiQuota" style="display: none;">
-                                <span class="quota-text">Remaining: <span class="quota-remaining">-</span> / <span class="quota-limit">-</span></span>
-                                <div class="quota-progress-bar">
-                                    <div class="quota-progress-fill" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div class="cost-badge">$0.080 per image</div>
-                            <button class="remove-key-btn" id="openaiRemoveBtn" style="display: none;">Remove Key</button>
-                        </div>
-
-                        <!-- Stable Diffusion Provider Card -->
-                        <div class="provider-card" data-provider="stablediffusion">
-                            <div class="provider-header">
-                                <div class="provider-logo stablediffusion-logo"></div>
-                                <span class="provider-name">Stable Diffusion</span>
-                            </div>
-                            <div class="api-key-input-group">
-                                <input type="password" id="stableDiffusionApiKey" class="api-key-input" placeholder="Enter Stable Diffusion API key" aria-label="Stable Diffusion API key">
-                                <button id="stableDiffusionValidateBtn" class="validate-btn">Validate</button>
-                            </div>
-                            <div class="status-indicator" id="stableDiffusionStatus">Not configured</div>
-                            <div class="quota-display" id="stableDiffusionQuota" style="display: none;">
-                                <span class="quota-text">Remaining: <span class="quota-remaining">-</span> / <span class="quota-limit">-</span></span>
-                                <div class="quota-progress-bar">
-                                    <div class="quota-progress-fill" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div class="cost-badge">$0.050 per image</div>
-                            <button class="remove-key-btn" id="stableDiffusionRemoveBtn" style="display: none;">Remove Key</button>
-                        </div>
-
-                        <!-- Procedural Provider Card -->
-                        <div class="provider-card" data-provider="procedural">
-                            <div class="provider-header">
-                                <div class="provider-logo procedural-logo" data-provider="P"></div>
-                                <span class="provider-name">Procedural (Free)</span>
-                            </div>
-                            <p class="help-text no-api-message">No API key required</p>
-                            <div class="status-indicator valid" id="proceduralStatus">Ready</div>
-                            <div class="cost-badge cost-badge-free">Free</div>
-                        </div>
-                    </div>
-                </div>
-
-                    <!-- Active Provider Selector -->
-                    <div class="active-provider-section">
-                        <h4>Active Provider</h4>
-                        <div class="provider-radio-group" id="activeProviderSelector" role="radiogroup" aria-label="Select active provider">
-                            <label class="provider-radio-label provider-radio-disabled">
-                                <input type="radio" name="activeProvider" value="gemini" id="activeProviderGemini" disabled>
-                                <span>Gemini (Coming Soon)</span>
-                            </label>
-                            <label class="provider-radio-label">
-                                <input type="radio" name="activeProvider" value="openai" id="activeProviderOpenai">
-                                <span>OpenAI</span>
-                            </label>
-                            <label class="provider-radio-label">
-                                <input type="radio" name="activeProvider" value="stablediffusion" id="activeProviderStableDiffusion">
-                                <span>Stable Diffusion</span>
-                            </label>
-                            <label class="provider-radio-label">
-                                <input type="radio" name="activeProvider" value="procedural" id="activeProviderProcedural">
-                                <span>Procedural</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Export/Import Configuration -->
-                    <div class="config-actions">
-                        <button id="exportConfigBtn" class="action-btn">Export Config</button>
-                        <button id="importConfigBtn" class="action-btn">Import Config</button>
-                    </div>
-                </div>
-
-                <!-- Master Style Configuration -->
-                <div class="config-subsection">
-                    <h3>Master Style Configuration</h3>
-                    <div class="style-config-grid">
-                        
-                        <!-- Style Preset Selector -->
-                        <div class="form-group">
-                            <label for="stylePresetDropdown">Style Preset</label>
-                            <select id="stylePresetDropdown" class="style-preset-selector" aria-label="Select style preset">
-                                <option value="">Custom</option>
-                                <option value="cyberpunk">Cyberpunk</option>
-                                <option value="medieval">Medieval Fantasy</option>
-                                <option value="minimalist">Minimalist</option>
-                                <option value="retro">Retro 80s</option>
-                                <option value="organic">Organic Nature</option>
-                                <option value="abstract">Abstract Art</option>
-                            </select>
-                        </div>
-
-                        <!-- Master Style Prompt -->
-                        <div class="form-group">
-                            <label for="masterStylePrompt">Master Style Prompt</label>
-                            <textarea id="masterStylePrompt" class="master-prompt-textarea" placeholder="e.g., cyberpunk neon art with glowing edges" maxlength="500" aria-label="Master style prompt"></textarea>
-                            <div class="char-counter"><span id="promptCharCount">0</span>/500</div>
-                        </div>
-
-                        <!-- Inheritance Level -->
-                        <div class="form-group">
-                            <label>Inheritance Level</label>
-                            <div class="inheritance-level-group" id="inheritanceLevel" role="radiogroup" aria-label="Select inheritance level">
-                                <label class="inheritance-radio-label">
-                                    <input type="radio" name="inheritanceLevel" value="strict">
-                                    <span>Strict</span>
-                                </label>
-                                <label class="inheritance-radio-label">
-                                    <input type="radio" name="inheritanceLevel" value="moderate" checked>
-                                    <span>Moderate</span>
-                                </label>
-                                <label class="inheritance-radio-label">
-                                    <input type="radio" name="inheritanceLevel" value="loose">
-                                    <span>Loose</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Global Negative Prompts -->
-                        <div class="form-group">
-                            <label for="globalNegativePrompts">Global Negative Prompts</label>
-                            <textarea id="globalNegativePrompts" class="negative-prompts-textarea" placeholder="e.g., blurry, low quality, distorted" aria-label="Global negative prompts"></textarea>
-                        </div>
-
-                        <!-- Color Palette Lock -->
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="colorPaletteLock">
-                                <span>Lock Color Palette</span>
-                            </label>
-                            <div class="color-palette-grid" id="colorPaletteGrid">
-                                <input type="color" class="color-picker-item" data-index="0" value="#6366f1" aria-label="Color 1">
-                                <input type="color" class="color-picker-item" data-index="1" value="#8b5cf6" aria-label="Color 2">
-                                <input type="color" class="color-picker-item" data-index="2" value="#06b6d4" aria-label="Color 3">
-                                <input type="color" class="color-picker-item" data-index="3" value="#10b981" aria-label="Color 4">
-                                <input type="color" class="color-picker-item" data-index="4" value="#f59e0b" aria-label="Color 5">
-                            </div>
-                        </div>
-
-                        <!-- Preview Button -->
-                        <div class="form-group">
-                            <button id="previewStyleBtn" class="action-btn">Preview Style Prompt</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Generation Mode Configuration -->
-                <div class="config-subsection">
-                    <h3>Generation Mode Configuration</h3>
-                    
-                    <!-- Global AI Toggle -->
-                    <div class="global-ai-toggle">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="globalAiToggle">
-                            <span>Use AI Generation</span>
-                        </label>
-                        <p class="help-text">Enable AI-powered trait generation. When disabled, all categories use procedural generation.</p>
-                    </div>
-
-                    <!-- Per-Category Mode Selectors -->
-                    <div class="generation-mode-grid">
-                        <div class="generation-mode-row">
-                            <span class="category-label">Background</span>
-                            <div class="mode-radio-group" id="bgGenerationMode" role="radiogroup" aria-label="Background generation mode">
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="bgMode" value="procedural" checked>
-                                    <span>Procedural</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="bgMode" value="ai">
-                                    <span>AI</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="bgMode" value="hybrid">
-                                    <span>Hybrid</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="generation-mode-row">
-                            <span class="category-label">Body</span>
-                            <div class="mode-radio-group" id="bodyGenerationMode" role="radiogroup" aria-label="Body generation mode">
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="bodyMode" value="procedural" checked>
-                                    <span>Procedural</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="bodyMode" value="ai">
-                                    <span>AI</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="bodyMode" value="hybrid">
-                                    <span>Hybrid</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="generation-mode-row">
-                            <span class="category-label">Eyes</span>
-                            <div class="mode-radio-group" id="eyesGenerationMode" role="radiogroup" aria-label="Eyes generation mode">
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="eyesMode" value="procedural" checked>
-                                    <span>Procedural</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="eyesMode" value="ai">
-                                    <span>AI</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="eyesMode" value="hybrid">
-                                    <span>Hybrid</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="generation-mode-row">
-                            <span class="category-label">Mouth</span>
-                            <div class="mode-radio-group" id="mouthGenerationMode" role="radiogroup" aria-label="Mouth generation mode">
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="mouthMode" value="procedural" checked>
-                                    <span>Procedural</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="mouthMode" value="ai">
-                                    <span>AI</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="mouthMode" value="hybrid">
-                                    <span>Hybrid</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="generation-mode-row">
-                            <span class="category-label">Hat</span>
-                            <div class="mode-radio-group" id="hatGenerationMode" role="radiogroup" aria-label="Hat generation mode">
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="hatMode" value="procedural" checked>
-                                    <span>Procedural</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="hatMode" value="ai">
-                                    <span>AI</span>
-                                </label>
-                                <label class="mode-radio-label">
-                                    <input type="radio" name="hatMode" value="hybrid">
-                                    <span>Hybrid</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Hybrid Opacity Slider -->
-                    <div class="hybrid-opacity-section">
-                        <label for="hybridOpacity">Hybrid Overlay Opacity: <span id="hybridOpacityValue">40</span>%</label>
-                        <input type="range" id="hybridOpacity" min="0" max="100" value="40" class="slider" aria-label="Hybrid overlay opacity">
-                    </div>
-                </div>
-
-                <!-- Cost Estimation -->
-                <div class="config-subsection">
-                    <h3>Cost Estimation</h3>
-                    <div class="cost-estimator" id="costEstimator">
-                        
-                        <!-- Collection Size Input -->
-                        <div class="cost-input-group">
-                            <label for="costCollectionSize">Collection Size</label>
-                            <input type="number" id="costCollectionSize" min="1" max="10000" value="100" aria-label="Collection size for cost estimation">
-                        </div>
-
-                        <!-- Cost Breakdown Table -->
-                        <table class="cost-breakdown-table">
-                            <thead>
-                                <tr>
-                                    <th>Provider</th>
-                                    <th>Cost/Image</th>
-                                    <th>AI Categories</th>
-                                    <th>Collection Size</th>
-                                    <th>Total Cost</th>
-                                </tr>
-                            </thead>
-                            <tbody id="costBreakdownBody">
-                                <tr class="cost-row cost-row-disabled" data-provider="gemini">
-                                    <td>Gemini <span class="coming-soon-badge">Coming Soon</span></td>
-                                    <td>N/A</td>
-                                    <td class="ai-categories-count">0</td>
-                                    <td class="collection-size-display">100</td>
-                                    <td class="provider-cost">N/A</td>
-                                </tr>
-                                <tr class="cost-row" data-provider="openai">
-                                    <td>OpenAI</td>
-                                    <td>$0.080</td>
-                                    <td class="ai-categories-count">0</td>
-                                    <td class="collection-size-display">100</td>
-                                    <td class="provider-cost">$0.00</td>
-                                </tr>
-                                <tr class="cost-row" data-provider="stablediffusion">
-                                    <td>Stable Diffusion</td>
-                                    <td>$0.050</td>
-                                    <td class="ai-categories-count">0</td>
-                                    <td class="collection-size-display">100</td>
-                                    <td class="provider-cost">$0.00</td>
-                                </tr>
-                                <tr class="cost-row" data-provider="procedural">
-                                    <td>Procedural (Free)</td>
-                                    <td><span class="cost-badge-free">Free</span></td>
-                                    <td class="ai-categories-count">0</td>
-                                    <td class="collection-size-display">100</td>
-                                    <td class="provider-cost">$0.00</td>
-                                </tr>
-                                <tr class="cost-total">
-                                    <td colspan="4"><strong>Estimated Total (Active Provider)</strong></td>
-                                    <td><strong id="estimatedCost">$0.00</strong></td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <!-- Cost Warning -->
-                        <div class="cost-warning" id="costWarning" style="display: none;">
-                            ⚠️ Estimated cost exceeds $10. Consider reducing collection size or disabling AI for some categories.
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Budget Management -->
-                <div class="config-subsection">
-                    <h3>Budget Management <span class="section-badge optional">Optional</span></h3>
-                    <div class="budget-controls">
-                        
-                        <!-- Per-provider budget inputs -->
-                        <div class="budget-provider-grid">
-                            <div class="budget-provider-row" data-provider="gemini">
-                                <div class="provider-info">
-                                    <span class="provider-name">Gemini</span>
-                                    <span class="provider-cost">$0.039/image</span>
-                                </div>
-                                <div class="budget-inputs">
-                                    <div class="budget-input-group">
-                                        <label for="geminiDailyBudget">Daily Limit</label>
-                                        <input type="number" id="geminiDailyBudget" min="0" step="0.01" value="5.00" aria-label="Gemini daily budget limit">
-                                    </div>
-                                    <div class="budget-input-group">
-                                        <label for="geminiMonthlyBudget">Monthly Limit</label>
-                                        <input type="number" id="geminiMonthlyBudget" min="0" step="0.01" value="50.00" aria-label="Gemini monthly budget limit">
-                                    </div>
-                                </div>
-                                <div class="budget-status">
-                                    <div class="budget-remaining">
-                                        <span class="budget-label">Daily Remaining:</span>
-                                        <span class="budget-value" id="geminiDailyRemaining">$5.00</span>
-                                    </div>
-                                    <div class="budget-progress">
-                                        <div class="budget-progress-bar">
-                                            <div class="budget-progress-fill" id="geminiDailyProgress" style="width: 0%"></div>
-                                        </div>
-                                        <span class="budget-percentage" id="geminiDailyPercentage">0%</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="budget-provider-row" data-provider="openai">
-                                <div class="provider-info">
-                                    <span class="provider-name">OpenAI</span>
-                                    <span class="provider-cost">$0.080/image</span>
-                                </div>
-                                <div class="budget-inputs">
-                                    <div class="budget-input-group">
-                                        <label for="openaiDailyBudget">Daily Limit</label>
-                                        <input type="number" id="openaiDailyBudget" min="0" step="0.01" value="10.00" aria-label="OpenAI daily budget limit">
-                                    </div>
-                                    <div class="budget-input-group">
-                                        <label for="openaiMonthlyBudget">Monthly Limit</label>
-                                        <input type="number" id="openaiMonthlyBudget" min="0" step="0.01" value="100.00" aria-label="OpenAI monthly budget limit">
-                                    </div>
-                                </div>
-                                <div class="budget-status">
-                                    <div class="budget-remaining">
-                                        <span class="budget-label">Daily Remaining:</span>
-                                        <span class="budget-value" id="openaiDailyRemaining">$10.00</span>
-                                    </div>
-                                    <div class="budget-progress">
-                                        <div class="budget-progress-bar">
-                                            <div class="budget-progress-fill" id="openaiDailyProgress" style="width: 0%"></div>
-                                        </div>
-                                        <span class="budget-percentage" id="openaiDailyPercentage">0%</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="budget-provider-row" data-provider="stablediffusion">
-                                <div class="provider-info">
-                                    <span class="provider-name">Stable Diffusion</span>
-                                    <span class="provider-cost">$0.050/image</span>
-                                </div>
-                                <div class="budget-inputs">
-                                    <div class="budget-input-group">
-                                        <label for="stablediffusionDailyBudget">Daily Limit</label>
-                                        <input type="number" id="stablediffusionDailyBudget" min="0" step="0.01" value="7.50" aria-label="Stable Diffusion daily budget limit">
-                                    </div>
-                                    <div class="budget-input-group">
-                                        <label for="stablediffusionMonthlyBudget">Monthly Limit</label>
-                                        <input type="number" id="stablediffusionMonthlyBudget" min="0" step="0.01" value="75.00" aria-label="Stable Diffusion monthly budget limit">
-                                    </div>
-                                </div>
-                                <div class="budget-status">
-                                    <div class="budget-remaining">
-                                        <span class="budget-label">Daily Remaining:</span>
-                                        <span class="budget-value" id="stablediffusionDailyRemaining">$7.50</span>
-                                    </div>
-                                    <div class="budget-progress">
-                                        <div class="budget-progress-bar">
-                                            <div class="budget-progress-fill" id="stablediffusionDailyProgress" style="width: 0%"></div>
-                                        </div>
-                                        <span class="budget-percentage" id="stablediffusionDailyPercentage">0%</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Global budget cap -->
-                        <div class="budget-global">
-                            <div class="form-group">
-                                <label for="globalMonthlyBudget">Global Monthly Budget</label>
-                                <input type="number" id="globalMonthlyBudget" min="0" step="1" value="200.00" aria-label="Global monthly budget limit">
-                            </div>
-                            <div class="global-budget-status">
-                                <span class="budget-label">Monthly Remaining:</span>
-                                <span class="budget-value" id="globalMonthlyRemaining">$200.00</span>
-                            </div>
-                        </div>
-
-                        <!-- Warning thresholds -->
-                        <div class="budget-thresholds">
-                            <div class="form-group">
-                                <label for="budgetWarningThreshold">Warning Threshold</label>
-                                <select id="budgetWarningThreshold" aria-label="Budget warning threshold">
-                                    <option value="50">50%</option>
-                                    <option value="75" selected>75%</option>
-                                    <option value="90">90%</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Cost Analytics Dashboard -->
-                <div class="config-subsection">
-                    <h3>Cost Analytics</h3>
-                    <div class="analytics-dashboard">
-                        
-                        <!-- Summary cards -->
-                        <div class="analytics-summary">
-                            <div class="stat-card">
-                                <span class="stat-label">Total Spend</span>
-                                <span class="stat-value" id="totalSpend">$0.00</span>
-                            </div>
-                            <div class="stat-card">
-                                <span class="stat-label">Images Generated</span>
-                                <span class="stat-value" id="totalImages">0</span>
-                            </div>
-                            <div class="stat-card">
-                                <span class="stat-label">Avg Cost/Image</span>
-                                <span class="stat-value" id="avgCost">$0.00</span>
-                            </div>
-                            <div class="stat-card">
-                                <span class="stat-label">Cache Savings</span>
-                                <span class="stat-value" id="cacheSavings">$0.00</span>
-                            </div>
-                        </div>
-
-                        <!-- Charts -->
-                        <div class="analytics-charts">
-                            <div class="chart-container">
-                                <h4>Spend Trend (Last 30 Days)</h4>
-                                <canvas id="spendTrendChart" width="600" height="300" aria-label="Spend trend chart"></canvas>
-                            </div>
-                            <div class="chart-container">
-                                <h4>Provider Breakdown</h4>
-                                <canvas id="providerBreakdownChart" width="300" height="300" aria-label="Provider breakdown chart"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Transaction table -->
-                        <div class="analytics-table">
-                            <h4>Recent Transactions</h4>
-                            <div class="table-container">
-                                <table id="transactionTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Provider</th>
-                                            <th>Category</th>
-                                            <th>Cost</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="transactionTableBody">
-                                        <tr>
-                                            <td colspan="5" class="no-data">No transactions yet</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Export button -->
-                        <div class="analytics-actions">
-                            <button id="exportAnalyticsBtn" class="btn-secondary">Export Report</button>
-                            <button id="clearAnalyticsBtn" class="btn-secondary">Clear Data</button>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </section>
 
         <!-- Quality Assurance Configuration Section -->
         <section class="qa-config-section" id="qaConfigSection">
