@@ -27,6 +27,13 @@ class APIManager {
         
         // Assign logger to window for APIConfigManager access
         window.apiLogger = this.logger;
+        
+        // Auto-register ProceduralProvider if available
+        if (window.ProceduralProvider) {
+            const proceduralProvider = new ProceduralProvider();
+            this.registerProvider(proceduralProvider);
+            this.logger.log('Auto-registered ProceduralProvider');
+        }
     }
     
     registerProvider(provider) {
@@ -39,6 +46,11 @@ class APIManager {
         if (existingIndex !== -1) {
             // Replace existing provider
             apiState.providers[existingIndex] = provider;
+            
+            // Update activeProvider if it points to the old instance
+            if (apiState.activeProvider && apiState.activeProvider.getName() === provider.getName()) {
+                apiState.activeProvider = provider;
+            }
         } else {
             // Add new provider
             apiState.providers.push(provider);
@@ -240,8 +252,8 @@ class APIManager {
     }
     
     updateFailoverQueue() {
-        // Default order: Stable Diffusion → OpenAI (Gemini excluded due to stub implementation)
-        const defaultOrder = ['stablediffusion', 'openai', 'gemini'];
+        // Default order: Procedural → Stable Diffusion → OpenAI → Gemini
+        const defaultOrder = ['procedural', 'stablediffusion', 'openai', 'gemini'];
         
         apiState.failoverQueue = [];
         

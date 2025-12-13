@@ -98,7 +98,19 @@
                             <div class="cost-badge">$0.050 per image</div>
                             <button class="remove-key-btn" id="stableDiffusionRemoveBtn" style="display: none;">Remove Key</button>
                         </div>
+
+                        <!-- Procedural Provider Card -->
+                        <div class="provider-card" data-provider="procedural">
+                            <div class="provider-header">
+                                <div class="provider-logo procedural-logo" data-provider="P"></div>
+                                <span class="provider-name">Procedural (Free)</span>
+                            </div>
+                            <p class="help-text no-api-message">No API key required</p>
+                            <div class="status-indicator valid" id="proceduralStatus">Ready</div>
+                            <div class="cost-badge cost-badge-free">Free</div>
+                        </div>
                     </div>
+                </div>
 
                     <!-- Active Provider Selector -->
                     <div class="active-provider-section">
@@ -115,6 +127,10 @@
                             <label class="provider-radio-label">
                                 <input type="radio" name="activeProvider" value="stablediffusion" id="activeProviderStableDiffusion">
                                 <span>Stable Diffusion</span>
+                            </label>
+                            <label class="provider-radio-label">
+                                <input type="radio" name="activeProvider" value="procedural" id="activeProviderProcedural">
+                                <span>Procedural</span>
                             </label>
                         </div>
                     </div>
@@ -352,6 +368,13 @@
                                 <tr class="cost-row" data-provider="stablediffusion">
                                     <td>Stable Diffusion</td>
                                     <td>$0.050</td>
+                                    <td class="ai-categories-count">0</td>
+                                    <td class="collection-size-display">100</td>
+                                    <td class="provider-cost">$0.00</td>
+                                </tr>
+                                <tr class="cost-row" data-provider="procedural">
+                                    <td>Procedural (Free)</td>
+                                    <td><span class="cost-badge-free">Free</span></td>
                                     <td class="ai-categories-count">0</td>
                                     <td class="collection-size-display">100</td>
                                     <td class="provider-cost">$0.00</td>

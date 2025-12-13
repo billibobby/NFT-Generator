@@ -3204,6 +3204,11 @@ async function loadAPIConfiguration() {
                     apiManager.setActiveProvider(lastConfig.settings.activeProvider);
                 } catch (error) {
                     console.warn('Could not restore active provider:', error);
+                    // Fall back to default if restoration fails
+                    const availableProviders = apiManager.getAvailableProviders();
+                    if (availableProviders.length > 0) {
+                        apiManager.setActiveProvider(availableProviders[0].getName());
+                    }
                 }
             }
             
@@ -3212,6 +3217,19 @@ async function loadAPIConfiguration() {
                 const sortedProviders = Object.entries(lastConfig.providers)
                     .sort(([, a], [, b]) => a.priority - b.priority)
                     .map(([name]) => name);
+                
+                // Add procedural to failover order if missing, but respect user positioning
+                if (!sortedProviders.includes('procedural')) {
+                    // Add procedural as second priority (after current active provider if it exists)
+                    const activeProvider = lastConfig.settings?.activeProvider;
+                    if (activeProvider && sortedProviders.includes(activeProvider)) {
+                        const activeIndex = sortedProviders.indexOf(activeProvider);
+                        sortedProviders.splice(activeIndex + 1, 0, 'procedural');
+                    } else {
+                        // If no active provider or active not in list, add procedural first
+                        sortedProviders.unshift('procedural');
+                    }
+                }
                 
                 apiManager.setFailoverOrder(sortedProviders);
             }
@@ -3571,7 +3589,7 @@ function initializeAPIProviderUI() {
     console.log('Initializing API Provider UI...');
     
     // Initialize provider cards
-    const providers = ['gemini', 'openai', 'stablediffusion'];
+    const providers = ['gemini', 'openai', 'stablediffusion', 'procedural'];
     
     providers.forEach(async (providerName) => {
         await initializeProviderCard(providerName);
@@ -3590,6 +3608,36 @@ function initializeAPIProviderUI() {
 }
 
 async function initializeProviderCard(providerName) {
+    // Handle procedural provider specially
+    if (providerName === 'procedural') {
+        const statusIndicator = document.getElementById(`${providerName}Status`);
+        if (statusIndicator) {
+            statusIndicator.textContent = '✓ Ready';
+            statusIndicator.className = 'status-indicator valid';
+        }
+        
+        // Disable/hide API key related controls
+        const keyInput = document.getElementById(`${providerName}ApiKey`);
+        const validateBtn = document.getElementById(`${providerName}ValidateBtn`);
+        const removeBtn = document.getElementById(`${providerName}RemoveBtn`);
+        const quotaDisplay = document.getElementById(`${providerName}Quota`);
+        
+        if (keyInput) keyInput.disabled = true;
+        if (validateBtn) validateBtn.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'none';
+        
+        // Show unlimited quota if quota display exists
+        if (quotaDisplay) {
+            quotaDisplay.style.display = 'block';
+            const quotaText = quotaDisplay.querySelector('.quota-text');
+            const quotaBar = quotaDisplay.querySelector('.quota-progress-fill');
+            if (quotaText) quotaText.textContent = 'Unlimited';
+            if (quotaBar) quotaBar.style.width = '100%';
+        }
+        
+        return;
+    }
+    
     const keyInput = document.getElementById(`${providerName}ApiKey`);
     const validateBtn = document.getElementById(`${providerName}ValidateBtn`);
     const removeBtn = document.getElementById(`${providerName}RemoveBtn`);
@@ -3846,8 +3894,11 @@ function initializeConfigActions() {
 function startQuotaUpdateInterval() {
     // Update quotas every 5 minutes
     setInterval(async () => {
-        const providers = ['gemini', 'openai', 'stablediffusion'];
+        const providers = ['gemini', 'openai', 'stablediffusion', 'procedural'];
         for (const providerName of providers) {
+            // Skip quota updates for procedural provider (unlimited quota)
+            if (providerName === 'procedural') continue;
+            
             const keyInput = document.getElementById(`${providerName}ApiKey`);
             if (keyInput && keyInput.dataset.hasKey === 'true') {
                 await updateProviderQuota(providerName);
@@ -4408,7 +4459,8 @@ function updateCostEstimation() {
     const providerCosts = {
         gemini: 0.039,
         openai: 0.080,
-        stablediffusion: 0.050
+        stablediffusion: 0.050,
+        procedural: 0.00
     };
     
     // Update table rows
@@ -4942,9 +4994,9 @@ aiCoordinator.generateSingleAITrait = async function(category, complexity, color
     const cacheKey = imageCacheManager ? imageCacheManager.generateCacheKey(category, complexity, colorSeed, index) : null;
     
     // Define providerCosts in outer scope for all blocks to use
-    const providerCosts = { gemini: 0.039, openai: 0.080, stablediffusion: 0.050 };
+    const providerCosts = { gemini: 0.039, openai: 0.080, stablediffusion: 0.050, procedural: 0.00 };
     const activeProvider = apiManager.getActiveProviderName();
-    const costPerImage = providerCosts[activeProvider] || 0.05;
+    const costPerImage = providerCosts[activeProvider] || 0;
     
     // Check IndexedDB cache first
     if (imageCacheManager && cacheKey) {

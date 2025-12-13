@@ -28,7 +28,7 @@ class CostAnalytics {
     }
 
     async getSpendByProvider(period = 'monthly') {
-        const providers = ['gemini', 'openai', 'stablediffusion'];
+        const providers = ['gemini', 'openai', 'stablediffusion', 'procedural'];
         const spendData = {};
 
         for (const provider of providers) {
@@ -397,7 +397,8 @@ class CostAnalytics {
         const colors = {
             gemini: '#4285f4',
             openai: '#00a67e',
-            stablediffusion: '#7c3aed'
+            stablediffusion: '#7c3aed',
+            procedural: '#f59e0b'
         };
 
         const centerX = canvas.width / 2;
@@ -408,6 +409,10 @@ class CostAnalytics {
 
         providers.forEach((provider, index) => {
             const value = values[index];
+            
+            // Skip drawing slices for zero values
+            if (value === 0) return;
+            
             const sliceAngle = (value / total) * 2 * Math.PI;
 
             // Draw slice
@@ -427,9 +432,28 @@ class CostAnalytics {
             ctx.font = '12px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText(`${provider}`, labelX, labelY - 5);
-            ctx.fillText(`$${value.toFixed(2)}`, labelX, labelY + 10);
+            const valueText = provider === 'procedural' ? 'Free' : `$${value.toFixed(2)}`;
+            ctx.fillText(valueText, labelX, labelY + 10);
 
             currentAngle += sliceAngle;
+        });
+        
+        // Draw legend for zero-value providers (like procedural)
+        let legendY = 20;
+        providers.forEach((provider, index) => {
+            const value = values[index];
+            if (value === 0) {
+                ctx.fillStyle = colors[provider] || '#6b7280';
+                ctx.fillRect(10, legendY, 12, 12);
+                
+                ctx.fillStyle = '#333333';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'left';
+                const valueText = provider === 'procedural' ? 'Free' : `$${value.toFixed(2)}`;
+                ctx.fillText(`${provider}: ${valueText}`, 30, legendY + 9);
+                
+                legendY += 20;
+            }
         });
     }
 
@@ -455,7 +479,7 @@ class CostAnalytics {
                 <td>${new Date(record.timestamp).toLocaleDateString()}</td>
                 <td>${record.provider}</td>
                 <td>${record.category}</td>
-                <td>$${record.amount.toFixed(3)}</td>
+                <td>${record.provider === 'procedural' ? '<span class="cost-badge-free">Free</span>' : `$${record.amount.toFixed(3)}`}</td>
                 <td><span class="status-badge ${record.success ? 'success' : 'error'}">${record.success ? 'Success' : 'Failed'}</span></td>
             `;
             tableBody.appendChild(row);

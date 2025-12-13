@@ -821,6 +821,10 @@ section h2 {
     background: linear-gradient(135deg, #7c3aed, #a855f7);
 }
 
+.procedural-logo {
+    background: linear-gradient(135deg, #f59e0b, #fb923c);
+}
+
 .provider-logo::before {
     content: attr(data-provider);
 }
@@ -958,6 +962,11 @@ section h2 {
     font-weight: 600;
     display: inline-block;
     margin-bottom: var(--spacing-md);
+}
+
+.cost-badge-free {
+    background: linear-gradient(135deg, var(--success), #34d399);
+    font-weight: 700;
 }
 
 .remove-key-btn {
@@ -1197,6 +1206,16 @@ section h2 {
     font-size: 0.9rem;
     color: var(--text-muted);
     line-height: 1.4;
+}
+
+.no-api-message {
+    padding: var(--spacing-md);
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: var(--border-radius);
+    text-align: center;
+    font-weight: 500;
+    margin-bottom: var(--spacing-md);
 }
 
 .generation-mode-grid {

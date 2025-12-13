@@ -514,8 +514,147 @@ class StableDiffusionProvider extends BaseAPIProvider {
     }
 }
 
+// Procedural Provider - wraps existing procedural generation functions
+class ProceduralProvider extends BaseAPIProvider {
+    constructor() {
+        super(null); // No API key required
+        this.baseUrl = null; // No API endpoint needed
+        this.healthScore = 100; // Always healthy
+    }
+
+    getName() {
+        return 'procedural';
+    }
+
+    getRateLimits() {
+        return {
+            requestsPerMinute: Infinity,
+            requestsPerDay: Infinity
+        };
+    }
+
+    getCostPerImage() {
+        return 0; // Free generation
+    }
+
+    getQuota() {
+        return {
+            remaining: Infinity,
+            limit: Infinity,
+            resetTime: null
+        };
+    }
+
+    validateKey() {
+        return Promise.resolve(true); // No API key validation needed
+    }
+
+    updateHealthScore(success) {
+        // Increment error count on failures for observability
+        if (!success) {
+            this.errorCount = (this.errorCount || 0) + 1;
+        }
+        // Always maintain perfect health score
+        this.healthScore = 100;
+    }
+
+    isHealthy() {
+        return true; // Procedural generation never fails
+    }
+
+    getStatus() {
+        const baseStatus = super.getStatus();
+        return {
+            ...baseStatus,
+            cost: 0,
+            quota: 'unlimited',
+            apiKeyRequired: false
+        };
+    }
+
+    async generateImage(prompt, options = {}) {
+        try {
+            this.recordRequest();
+
+            // Extract required parameters from options
+            const { category, complexity, colorSeed, index } = options;
+
+            // Validate required parameters
+            if (!category) {
+                throw new ValidationError('category', category, 'Category is required for procedural generation');
+            }
+            if (complexity === undefined || complexity === null) {
+                throw new ValidationError('complexity', complexity, 'Complexity is required for procedural generation');
+            }
+            if (!colorSeed) {
+                throw new ValidationError('colorSeed', colorSeed, 'Color seed is required for procedural generation');
+            }
+            if (index === undefined || index === null) {
+                throw new ValidationError('index', index, 'Index is required for procedural generation');
+            }
+
+            // Generate procedural trait
+            const dataUrl = this._generateProceduralTraitInternal(category, complexity, colorSeed, index);
+            
+            this.updateHealthScore(true);
+            return dataUrl;
+
+        } catch (error) {
+            this.updateHealthScore(false);
+            if (error instanceof ValidationError) {
+                throw error;
+            }
+            throw new ProviderError(this.getName(), 'PROCEDURAL_GENERATION_FAILED', `Procedural generation failed: ${error.message}`);
+        }
+    }
+
+    _generateProceduralTraitInternal(category, complexity, colorSeed, index) {
+        // Create off-screen canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 500;
+        canvas.height = 500;
+        const ctx = canvas.getContext('2d');
+
+        // Parse color seed
+        const baseColor = parseColorSeed(colorSeed, category, index);
+
+        // Calculate seed value
+        const seed = seedManager.useMasterSeed 
+            ? seedManager.getCategorySeed(category) + index
+            : (baseColor.h + baseColor.s + baseColor.l + index) * 1000;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, 500, 500);
+
+        // Generate based on category
+        switch (category) {
+            case 'background':
+                generateBackgroundTrait(ctx, complexity, baseColor, seed);
+                break;
+            case 'body':
+                generateBodyTrait(ctx, complexity, baseColor, seed);
+                break;
+            case 'eyes':
+                generateEyesTrait(ctx, complexity, baseColor, seed);
+                break;
+            case 'mouth':
+                generateMouthTrait(ctx, complexity, baseColor, seed);
+                break;
+            case 'hat':
+                generateHatTrait(ctx, complexity, baseColor, seed);
+                break;
+            default:
+                throw new ValidationError('category', category, 'Unknown category for procedural generation');
+        }
+
+        // Convert to data URL
+        return canvas.toDataURL('image/png');
+    }
+}
+
 // Export classes for global usage
 window.BaseAPIProvider = BaseAPIProvider;
 window.GeminiProvider = GeminiProvider;
 window.OpenAIProvider = OpenAIProvider;
 window.StableDiffusionProvider = StableDiffusionProvider;
+window.ProceduralProvider = ProceduralProvider;

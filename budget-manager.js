@@ -13,6 +13,7 @@ class BudgetManager {
             gemini: { daily: 5.00, monthly: 50.00 },
             openai: { daily: 10.00, monthly: 100.00 },
             stablediffusion: { daily: 7.50, monthly: 75.00 },
+            procedural: { daily: Infinity, monthly: Infinity },
             global: { monthly: 200.00 },
             warningThreshold: 75 // Percentage
         };
@@ -80,6 +81,11 @@ class BudgetManager {
     }
 
     async recordSpend(provider, amount, metadata = {}) {
+        // Skip recording only for truly zero amounts without usage tracking needs
+        if (amount === 0 && provider !== 'procedural') {
+            return null;
+        }
+        
         const spendRecord = {
             timestamp: Date.now(),
             date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
@@ -240,6 +246,11 @@ class BudgetManager {
     }
 
     async canMakeRequest(provider, estimatedCost) {
+        // Skip budget checks for free providers
+        if (provider === 'procedural') {
+            return { allowed: true };
+        }
+        
         const remaining = await this.getRemainingBudget(provider);
         
         // Check daily limit
@@ -492,7 +503,7 @@ class BudgetManager {
 
     // Utility methods for UI integration
     async getBudgetSummary() {
-        const providers = ['gemini', 'openai', 'stablediffusion'];
+        const providers = ['gemini', 'openai', 'stablediffusion', 'procedural'];
         const summary = {
             providers: {},
             global: {
