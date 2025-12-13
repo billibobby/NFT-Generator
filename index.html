@@ -23,6 +23,48 @@
             <p>Upload trait layers, configure rarity, and generate unique NFT collections</p>
         </header>
 
+        <!-- Tab Navigation -->
+        <div class="tab-navigation-container">
+            <nav class="tab-nav" role="tablist">
+                <button class="tab-button active" role="tab" data-tab="config" aria-selected="true" id="tab-config">
+                    Configuration
+                </button>
+                <button class="tab-button" role="tab" data-tab="trait-generation" aria-selected="false" id="tab-trait-generation">
+                    Trait Generation
+                </button>
+                <button class="tab-button" role="tab" data-tab="rarity-collection" aria-selected="false" id="tab-rarity-collection">
+                    Rarity & Collection
+                </button>
+                <button class="tab-button" role="tab" data-tab="budget-analytics" aria-selected="false" id="tab-budget-analytics">
+                    Budget & Analytics
+                </button>
+                <button class="tab-button" role="tab" data-tab="quality-assurance" aria-selected="false" id="tab-quality-assurance">
+                    Quality Assurance
+                </button>
+            </nav>
+        </div>
+
+        <!-- Tab Content Containers -->
+        <div class="tab-content" id="config-content" role="tabpanel" aria-labelledby="tab-config" style="display: block;">
+            <!-- Configuration content will go here -->
+        </div>
+
+        <div class="tab-content" id="trait-generation-content" role="tabpanel" aria-labelledby="tab-trait-generation" style="display: none;">
+            <!-- Trait generation content will go here -->
+        </div>
+
+        <div class="tab-content" id="rarity-collection-content" role="tabpanel" aria-labelledby="tab-rarity-collection" style="display: none;">
+            <!-- Rarity & collection content will go here -->
+        </div>
+
+        <div class="tab-content" id="budget-analytics-content" role="tabpanel" aria-labelledby="tab-budget-analytics" style="display: none;">
+            <!-- Budget & analytics content will go here -->
+        </div>
+
+        <div class="tab-content" id="quality-assurance-content" role="tabpanel" aria-labelledby="tab-quality-assurance" style="display: none;">
+            <!-- Quality assurance content will go here -->
+        </div>
+
         <!-- AI & Style Configuration Section -->
         <section class="ai-config-section" id="aiConfigSection">
             <div class="ai-config-header">

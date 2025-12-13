@@ -734,6 +734,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Initialize security warnings
     initializeSecurityWarnings();
+    
+    // Initialize tab navigation
+    initializeTabNavigation();
+    loadActiveTab();
+    
     initializeGenerateButton();
     initializeCollectionGeneration();
     initializeDownloadButton();
@@ -901,6 +906,107 @@ function initializeQAUI() {
 
     // Initial queue status update
     setTimeout(updateQueueStatus, 1000);
+}
+
+// ===== TAB NAVIGATION SYSTEM =====
+
+function initializeTabNavigation() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabNavContainer = document.querySelector('.tab-nav');
+    
+    // Add click event listeners to tab buttons
+    tabButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            switchToTab(e.currentTarget.dataset.tab);
+        });
+    });
+    
+    // Add keyboard navigation
+    if (tabNavContainer) {
+        tabNavContainer.addEventListener('keydown', (e) => {
+            const currentTab = document.querySelector('.tab-button[aria-selected="true"]');
+            
+            // Guard against missing aria-selected tab
+            if (!currentTab) {
+                return;
+            }
+            
+            const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+            const currentIndex = tabButtons.indexOf(currentTab);
+            
+            let targetIndex = currentIndex;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    targetIndex = currentIndex > 0 ? currentIndex - 1 : tabButtons.length - 1;
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    targetIndex = currentIndex < tabButtons.length - 1 ? currentIndex + 1 : 0;
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    targetIndex = 0;
+                    break;
+                case 'End':
+                    e.preventDefault();
+                    targetIndex = tabButtons.length - 1;
+                    break;
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    switchToTab(currentTab.dataset.tab);
+                    return;
+            }
+            
+            if (targetIndex !== currentIndex) {
+                tabButtons[targetIndex].focus();
+                switchToTab(tabButtons[targetIndex].dataset.tab);
+            }
+        });
+    }
+}
+
+function switchToTab(tabId) {
+    // Remove active state from all tabs
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('active');
+        button.setAttribute('aria-selected', 'false');
+    });
+    
+    // Hide all tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    // Activate clicked tab
+    const activeButton = document.querySelector(`[data-tab="${tabId}"]`);
+    const activeContent = document.getElementById(`${tabId}-content`);
+    
+    if (activeButton && activeContent) {
+        activeButton.classList.add('active');
+        activeButton.setAttribute('aria-selected', 'true');
+        activeContent.style.display = 'block';
+        
+        // Store active tab in localStorage
+        localStorage.setItem('activeTab', tabId);
+        
+        // Dispatch custom event
+        window.dispatchEvent(new CustomEvent('tab:changed', {
+            detail: { tabId }
+        }));
+    }
+}
+
+function loadActiveTab() {
+    const savedTab = localStorage.getItem('activeTab');
+    if (savedTab && document.querySelector(`[data-tab="${savedTab}"]`)) {
+        switchToTab(savedTab);
+    } else {
+        // Default to first tab (Configuration)
+        switchToTab('config');
+    }
 }
 
 async function updateQueueStatus() {
@@ -2474,6 +2580,8 @@ function initializeGenerateButton() {
     }
     
     domRefs.generateBtn.addEventListener('click', async function() {
+        console.log('Generate Traits button clicked');
+        
         // Check if traits already exist and show confirmation
         const hasExistingTraits = Object.values(globalState).some(category => category.length > 0);
         
@@ -2538,8 +2646,10 @@ function initializeGenerateButton() {
         domRefs.generateBtn.textContent = 'Generating Traits...';
         
         try {
-            // Call async generateAllTraits
-            await generateAllTraits();
+            console.log('Starting trait generation...');
+            // Call async generateAllTraits with force flag for manual generation
+            await generateAllTraits(true);
+            console.log('Trait generation completed successfully');
             
             // Re-enable button and update text
             domRefs.generateBtn.disabled = false;
@@ -3262,6 +3372,16 @@ async function loadAPIConfiguration() {
         const settings = configManager.loadSettings();
         if (settings.logVerbosity !== undefined && window.apiLogger) {
             window.apiLogger.setVerbosity(settings.logVerbosity);
+        }
+        
+        // Ensure a provider is selected (default to procedural if none set)
+        if (!apiManager.getActiveProviderName()) {
+            const availableProviders = apiManager.getAvailableProviders();
+            const proceduralProvider = availableProviders.find(p => p.getName() === 'procedural');
+            if (proceduralProvider) {
+                apiManager.setActiveProvider('procedural');
+                console.log('Set procedural as default active provider');
+            }
         }
         
         console.log('API configuration loaded successfully');
@@ -5074,8 +5194,8 @@ aiCoordinator.generateSingleAITrait = async function(category, complexity, color
 
 // Modify generateAllTraits to use smart regeneration
 const originalGenerateAllTraits = generateAllTraits;
-generateAllTraits = async function() {
-    if (!smartRegenerator || !smartRegenerator.isSmartRegenerationEnabled()) {
+generateAllTraits = async function(forceGeneration = false) {
+    if (!smartRegenerator || !smartRegenerator.isSmartRegenerationEnabled() || forceGeneration) {
         return await originalGenerateAllTraits();
     }
     
@@ -5084,8 +5204,15 @@ generateAllTraits = async function() {
         const diffReport = await smartRegenerator.generateDiffReport();
         
         if (!diffReport.hasChanges) {
-            showInfoMessage('No configuration changes detected. Skipping regeneration.');
-            return;
+            // Check if this is the first generation (no existing traits)
+            const hasExistingTraits = Object.values(globalState).some(category => category.length > 0);
+            if (hasExistingTraits) {
+                showInfoMessage('No configuration changes detected. Skipping regeneration.');
+                return;
+            }
+            // If no existing traits, proceed with full generation
+            console.log('First generation detected, proceeding with full trait generation');
+            return await originalGenerateAllTraits();
         }
         
         // Show diff to user
