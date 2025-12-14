@@ -249,259 +249,7 @@
                     </div>
 
 
-                    <!-- Cost Estimation -->
-                    <div class="config-subsection">
-                        <h3>Cost Estimation</h3>
-                        <div class="cost-estimator" id="costEstimator">
-                            
-                            <!-- Collection Size Input -->
-                            <div class="cost-input-group">
-                                <label for="costCollectionSize">Collection Size</label>
-                                <input type="number" id="costCollectionSize" min="1" max="10000" value="100" aria-label="Collection size for cost estimation">
-                            </div>
 
-                            <!-- Cost Breakdown Table -->
-                            <table class="cost-breakdown-table">
-                                <thead>
-                                    <tr>
-                                        <th>Provider</th>
-                                        <th>Cost/Image</th>
-                                        <th>AI Categories</th>
-                                        <th>Collection Size</th>
-                                        <th>Total Cost</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="costBreakdownBody">
-                                    <tr class="cost-row cost-row-disabled" data-provider="gemini">
-                                        <td>Gemini <span class="coming-soon-badge">Coming Soon</span></td>
-                                        <td>N/A</td>
-                                        <td class="ai-categories-count">0</td>
-                                        <td class="collection-size-display">100</td>
-                                        <td class="provider-cost">N/A</td>
-                                    </tr>
-                                    <tr class="cost-row" data-provider="openai">
-                                        <td>OpenAI</td>
-                                        <td>$0.080</td>
-                                        <td class="ai-categories-count">0</td>
-                                        <td class="collection-size-display">100</td>
-                                        <td class="provider-cost">$0.00</td>
-                                    </tr>
-                                    <tr class="cost-row" data-provider="stablediffusion">
-                                        <td>Stable Diffusion</td>
-                                        <td>$0.050</td>
-                                        <td class="ai-categories-count">0</td>
-                                        <td class="collection-size-display">100</td>
-                                        <td class="provider-cost">$0.00</td>
-                                    </tr>
-                                    <tr class="cost-row" data-provider="procedural">
-                                        <td>Procedural (Free)</td>
-                                        <td><span class="cost-badge-free">Free</span></td>
-                                        <td class="ai-categories-count">0</td>
-                                        <td class="collection-size-display">100</td>
-                                        <td class="provider-cost">$0.00</td>
-                                    </tr>
-                                    <tr class="cost-total">
-                                        <td colspan="4"><strong>Estimated Total (Active Provider)</strong></td>
-                                        <td><strong id="estimatedCost">$0.00</strong></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-
-                            <!-- Cost Warning -->
-                            <div class="cost-warning" id="costWarning" style="display: none;">
-                                ⚠️ Estimated cost exceeds $10. Consider reducing collection size or disabling AI for some categories.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Budget Management -->
-                    <div class="config-subsection">
-                        <h3>Budget Management <span class="section-badge optional">Optional</span></h3>
-                        <div class="budget-controls">
-                            
-                            <!-- Per-provider budget inputs -->
-                            <div class="budget-provider-grid">
-                                <div class="budget-provider-row" data-provider="gemini">
-                                    <div class="provider-info">
-                                        <span class="provider-name">Gemini</span>
-                                        <span class="provider-cost">$0.039/image</span>
-                                    </div>
-                                    <div class="budget-inputs">
-                                        <div class="budget-input-group">
-                                            <label for="geminiDailyBudget">Daily Limit</label>
-                                            <input type="number" id="geminiDailyBudget" min="0" step="0.01" value="5.00" aria-label="Gemini daily budget limit">
-                                        </div>
-                                        <div class="budget-input-group">
-                                            <label for="geminiMonthlyBudget">Monthly Limit</label>
-                                            <input type="number" id="geminiMonthlyBudget" min="0" step="0.01" value="50.00" aria-label="Gemini monthly budget limit">
-                                        </div>
-                                    </div>
-                                    <div class="budget-status">
-                                        <div class="budget-remaining">
-                                            <span class="budget-label">Daily Remaining:</span>
-                                            <span class="budget-value" id="geminiDailyRemaining">$5.00</span>
-                                        </div>
-                                        <div class="budget-progress">
-                                            <div class="budget-progress-bar">
-                                                <div class="budget-progress-fill" id="geminiDailyProgress" style="width: 0%"></div>
-                                            </div>
-                                            <span class="budget-percentage" id="geminiDailyPercentage">0%</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="budget-provider-row" data-provider="openai">
-                                    <div class="provider-info">
-                                        <span class="provider-name">OpenAI</span>
-                                        <span class="provider-cost">$0.080/image</span>
-                                    </div>
-                                    <div class="budget-inputs">
-                                        <div class="budget-input-group">
-                                            <label for="openaiDailyBudget">Daily Limit</label>
-                                            <input type="number" id="openaiDailyBudget" min="0" step="0.01" value="10.00" aria-label="OpenAI daily budget limit">
-                                        </div>
-                                        <div class="budget-input-group">
-                                            <label for="openaiMonthlyBudget">Monthly Limit</label>
-                                            <input type="number" id="openaiMonthlyBudget" min="0" step="0.01" value="100.00" aria-label="OpenAI monthly budget limit">
-                                        </div>
-                                    </div>
-                                    <div class="budget-status">
-                                        <div class="budget-remaining">
-                                            <span class="budget-label">Daily Remaining:</span>
-                                            <span class="budget-value" id="openaiDailyRemaining">$10.00</span>
-                                        </div>
-                                        <div class="budget-progress">
-                                            <div class="budget-progress-bar">
-                                                <div class="budget-progress-fill" id="openaiDailyProgress" style="width: 0%"></div>
-                                            </div>
-                                            <span class="budget-percentage" id="openaiDailyPercentage">0%</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="budget-provider-row" data-provider="stablediffusion">
-                                    <div class="provider-info">
-                                        <span class="provider-name">Stable Diffusion</span>
-                                        <span class="provider-cost">$0.050/image</span>
-                                    </div>
-                                    <div class="budget-inputs">
-                                        <div class="budget-input-group">
-                                            <label for="stablediffusionDailyBudget">Daily Limit</label>
-                                            <input type="number" id="stablediffusionDailyBudget" min="0" step="0.01" value="7.50" aria-label="Stable Diffusion daily budget limit">
-                                        </div>
-                                        <div class="budget-input-group">
-                                            <label for="stablediffusionMonthlyBudget">Monthly Limit</label>
-                                            <input type="number" id="stablediffusionMonthlyBudget" min="0" step="0.01" value="75.00" aria-label="Stable Diffusion monthly budget limit">
-                                        </div>
-                                    </div>
-                                    <div class="budget-status">
-                                        <div class="budget-remaining">
-                                            <span class="budget-label">Daily Remaining:</span>
-                                            <span class="budget-value" id="stablediffusionDailyRemaining">$7.50</span>
-                                        </div>
-                                        <div class="budget-progress">
-                                            <div class="budget-progress-bar">
-                                                <div class="budget-progress-fill" id="stablediffusionDailyProgress" style="width: 0%"></div>
-                                            </div>
-                                            <span class="budget-percentage" id="stablediffusionDailyPercentage">0%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Global budget cap -->
-                            <div class="budget-global">
-                                <div class="form-group">
-                                    <label for="globalMonthlyBudget">Global Monthly Budget</label>
-                                    <input type="number" id="globalMonthlyBudget" min="0" step="1" value="200.00" aria-label="Global monthly budget limit">
-                                </div>
-                                <div class="global-budget-status">
-                                    <span class="budget-label">Monthly Remaining:</span>
-                                    <span class="budget-value" id="globalMonthlyRemaining">$200.00</span>
-                                </div>
-                            </div>
-
-                            <!-- Warning thresholds -->
-                            <div class="budget-thresholds">
-                                <div class="form-group">
-                                    <label for="budgetWarningThreshold">Warning Threshold</label>
-                                    <select id="budgetWarningThreshold" aria-label="Budget warning threshold">
-                                        <option value="50">50%</option>
-                                        <option value="75" selected>75%</option>
-                                        <option value="90">90%</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Cost Analytics Dashboard -->
-                    <div class="config-subsection">
-                        <h3>Cost Analytics</h3>
-                        <div class="analytics-dashboard">
-                            
-                            <!-- Summary cards -->
-                            <div class="analytics-summary">
-                                <div class="stat-card">
-                                    <span class="stat-label">Total Spend</span>
-                                    <span class="stat-value" id="totalSpend">$0.00</span>
-                                </div>
-                                <div class="stat-card">
-                                    <span class="stat-label">Images Generated</span>
-                                    <span class="stat-value" id="totalImages">0</span>
-                                </div>
-                                <div class="stat-card">
-                                    <span class="stat-label">Avg Cost/Image</span>
-                                    <span class="stat-value" id="avgCost">$0.00</span>
-                                </div>
-                                <div class="stat-card">
-                                    <span class="stat-label">Cache Savings</span>
-                                    <span class="stat-value" id="cacheSavings">$0.00</span>
-                                </div>
-                            </div>
-
-                            <!-- Charts -->
-                            <div class="analytics-charts">
-                                <div class="chart-container">
-                                    <h4>Spend Trend (Last 30 Days)</h4>
-                                    <canvas id="spendTrendChart" width="600" height="300" aria-label="Spend trend chart"></canvas>
-                                </div>
-                                <div class="chart-container">
-                                    <h4>Provider Breakdown</h4>
-                                    <canvas id="providerBreakdownChart" width="300" height="300" aria-label="Provider breakdown chart"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- Transaction table -->
-                            <div class="analytics-table">
-                                <h4>Recent Transactions</h4>
-                                <div class="table-container">
-                                    <table id="transactionTable">
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Provider</th>
-                                                <th>Category</th>
-                                                <th>Cost</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="transactionTableBody">
-                                            <tr>
-                                                <td colspan="5" class="no-data">No transactions yet</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <!-- Export button -->
-                            <div class="analytics-actions">
-                                <button id="exportAnalyticsBtn" class="btn-secondary">Export Report</button>
-                                <button id="clearAnalyticsBtn" class="btn-secondary">Clear Data</button>
-                            </div>
-                        </div>
-                    </div>
 
                 </div>
             </section>
@@ -523,8 +271,8 @@
                 
                 <!-- Number of Traits Slider -->
                 <div class="form-group">
-                    <label for="unified-numTraits">Number of Traits: <span id="unified-numTraits-value">10</span></label>
-                    <input type="range" id="unified-numTraits" class="slider" min="1" max="50" value="10" aria-label="Number of traits">
+                    <label for="unified-numTraits">Number of Traits: <span id="unified-numTraits-value">20</span></label>
+                    <input type="range" id="unified-numTraits" class="slider" min="13" max="50" value="20" aria-label="Number of traits">
                 </div>
 
                 <!-- Complexity Slider -->
@@ -573,76 +321,76 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="category-label">Background</td>
-                            <td class="mode-radio-cell">
+                            <td class="category-label" data-label="Category">Background</td>
+                            <td class="mode-radio-cell" data-label="Procedural">
                                 <input type="radio" name="bgMode" value="procedural" id="bg-procedural" checked>
                                 <label for="bg-procedural">Procedural</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="AI">
                                 <input type="radio" name="bgMode" value="ai" id="bg-ai">
                                 <label for="bg-ai">AI</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="Hybrid">
                                 <input type="radio" name="bgMode" value="hybrid" id="bg-hybrid">
                                 <label for="bg-hybrid">Hybrid</label>
                             </td>
                         </tr>
                         <tr>
-                            <td class="category-label">Body</td>
-                            <td class="mode-radio-cell">
+                            <td class="category-label" data-label="Category">Body</td>
+                            <td class="mode-radio-cell" data-label="Procedural">
                                 <input type="radio" name="bodyMode" value="procedural" id="body-procedural" checked>
                                 <label for="body-procedural">Procedural</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="AI">
                                 <input type="radio" name="bodyMode" value="ai" id="body-ai">
                                 <label for="body-ai">AI</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="Hybrid">
                                 <input type="radio" name="bodyMode" value="hybrid" id="body-hybrid">
                                 <label for="body-hybrid">Hybrid</label>
                             </td>
                         </tr>
                         <tr>
-                            <td class="category-label">Eyes</td>
-                            <td class="mode-radio-cell">
+                            <td class="category-label" data-label="Category">Eyes</td>
+                            <td class="mode-radio-cell" data-label="Procedural">
                                 <input type="radio" name="eyesMode" value="procedural" id="eyes-procedural" checked>
                                 <label for="eyes-procedural">Procedural</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="AI">
                                 <input type="radio" name="eyesMode" value="ai" id="eyes-ai">
                                 <label for="eyes-ai">AI</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="Hybrid">
                                 <input type="radio" name="eyesMode" value="hybrid" id="eyes-hybrid">
                                 <label for="eyes-hybrid">Hybrid</label>
                             </td>
                         </tr>
                         <tr>
-                            <td class="category-label">Mouth</td>
-                            <td class="mode-radio-cell">
+                            <td class="category-label" data-label="Category">Mouth</td>
+                            <td class="mode-radio-cell" data-label="Procedural">
                                 <input type="radio" name="mouthMode" value="procedural" id="mouth-procedural" checked>
                                 <label for="mouth-procedural">Procedural</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="AI">
                                 <input type="radio" name="mouthMode" value="ai" id="mouth-ai">
                                 <label for="mouth-ai">AI</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="Hybrid">
                                 <input type="radio" name="mouthMode" value="hybrid" id="mouth-hybrid">
                                 <label for="mouth-hybrid">Hybrid</label>
                             </td>
                         </tr>
                         <tr>
-                            <td class="category-label">Hat</td>
-                            <td class="mode-radio-cell">
+                            <td class="category-label" data-label="Category">Hat</td>
+                            <td class="mode-radio-cell" data-label="Procedural">
                                 <input type="radio" name="hatMode" value="procedural" id="hat-procedural" checked>
                                 <label for="hat-procedural">Procedural</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="AI">
                                 <input type="radio" name="hatMode" value="ai" id="hat-ai">
                                 <label for="hat-ai">AI</label>
                             </td>
-                            <td class="mode-radio-cell">
+                            <td class="mode-radio-cell" data-label="Hybrid">
                                 <input type="radio" name="hatMode" value="hybrid" id="hat-hybrid">
                                 <label for="hat-hybrid">Hybrid</label>
                             </td>
@@ -664,202 +412,377 @@
         </div>
 
         <div class="tab-content" id="rarity-collection-content" role="tabpanel" aria-labelledby="tab-rarity-collection" style="display: none;">
-            <!-- Rarity & collection content will go here -->
+            <!-- Rarity Configuration Area -->
+            <section class="rarity-config-section" id="rarityConfig">
+                <h2>2. Configure Rarity</h2>
+                <p class="rarity-status" id="rarityStatus">Generate traits first to configure rarity</p>
+                <div class="rarity-controls-container"></div>
+                <div class="rarity-validation-summary" id="rarityValidationSummary"></div>
+                <button type="button" class="btn-secondary" id="resetRarityBtn" style="display:none;">Reset All to Equal Weights</button>
+            </section>
+
+            <!-- Generation Controls -->
+            <section class="generation-section" id="generationControls">
+                <h2>3. Generate Collection</h2>
+                <form class="generation-form">
+                    <div class="form-group">
+                        <label for="collectionSize">Collection Size:</label>
+                        <input type="number" id="collectionSize" min="1" max="10000" value="100">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="collectionName">Collection Name:</label>
+                        <input type="text" id="collectionName" placeholder="My NFT Collection">
+                    </div>
+                    
+                    <canvas id="previewCanvas" width="500" height="500" aria-label="NFT Preview Canvas"></canvas>
+                    
+                    <button type="button" class="btn-primary" id="generateBtn">Generate Collection</button>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar"></div>
+                        <span class="progress-text">0%</span>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Output Area -->
+            <section class="output-section" id="outputArea">
+                <h2>Generated Collection</h2>
+                <div class="collection-grid"></div>
+                <button type="button" class="btn-secondary" id="downloadBtn">Download Collection</button>
+            </section>
         </div>
 
         <div class="tab-content" id="budget-analytics-content" role="tabpanel" aria-labelledby="tab-budget-analytics" style="display: none;">
-            <!-- Budget & analytics content will go here -->
+            <!-- Cost Estimation -->
+            <div class="config-subsection">
+                <h3>Cost Estimation</h3>
+                <div class="cost-estimator" id="costEstimator">
+                    
+                    <!-- Collection Size Input -->
+                    <div class="cost-input-group">
+                        <label for="costCollectionSize">Collection Size</label>
+                        <input type="number" id="costCollectionSize" min="1" max="10000" value="100" aria-label="Collection size for cost estimation">
+                    </div>
+
+                    <!-- Cost Breakdown Table -->
+                    <table class="cost-breakdown-table">
+                        <thead>
+                            <tr>
+                                <th>Provider</th>
+                                <th>Cost/Image</th>
+                                <th>AI Categories</th>
+                                <th>Collection Size</th>
+                                <th>Total Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="costBreakdownBody">
+                            <tr class="cost-row cost-row-disabled" data-provider="gemini">
+                                <td>Gemini <span class="coming-soon-badge">Coming Soon</span></td>
+                                <td>N/A</td>
+                                <td class="ai-categories-count">0</td>
+                                <td class="collection-size-display">100</td>
+                                <td class="provider-cost">N/A</td>
+                            </tr>
+                            <tr class="cost-row" data-provider="openai">
+                                <td>OpenAI</td>
+                                <td>$0.080</td>
+                                <td class="ai-categories-count">0</td>
+                                <td class="collection-size-display">100</td>
+                                <td class="provider-cost">$0.00</td>
+                            </tr>
+                            <tr class="cost-row" data-provider="stablediffusion">
+                                <td>Stable Diffusion</td>
+                                <td>$0.050</td>
+                                <td class="ai-categories-count">0</td>
+                                <td class="collection-size-display">100</td>
+                                <td class="provider-cost">$0.00</td>
+                            </tr>
+                            <tr class="cost-row" data-provider="procedural">
+                                <td>Procedural (Free)</td>
+                                <td><span class="cost-badge-free">Free</span></td>
+                                <td class="ai-categories-count">0</td>
+                                <td class="collection-size-display">100</td>
+                                <td class="provider-cost">$0.00</td>
+                            </tr>
+                            <tr class="cost-total">
+                                <td colspan="4"><strong>Estimated Total (Active Provider)</strong></td>
+                                <td><strong id="estimatedCost">$0.00</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Cost Warning -->
+                    <div class="cost-warning" id="costWarning" style="display: none;">
+                        ⚠️ Estimated cost exceeds $10. Consider reducing collection size or disabling AI for some categories.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Budget Management -->
+            <div class="config-subsection">
+                <h3>Budget Management <span class="section-badge optional">Optional</span></h3>
+                
+                <!-- Consolidated Budget Table -->
+                <table class="budget-management-table">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Cost/Image</th>
+                            <th>Daily Limit</th>
+                            <th>Monthly Limit</th>
+                            <th>Daily Remaining</th>
+                            <th>Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-provider="gemini">
+                            <td class="provider-name-cell" data-label="Provider">
+                                <div class="provider-logo gemini-logo"></div>
+                                <span>Gemini</span>
+                            </td>
+                            <td class="cost-cell" data-label="Cost/Image">$0.039/image</td>
+                            <td class="input-cell" data-label="Daily Limit">
+                                <input type="number" id="geminiDailyBudget" min="0" step="0.01" value="5.00" aria-label="Gemini daily budget limit">
+                            </td>
+                            <td class="input-cell" data-label="Monthly Limit">
+                                <input type="number" id="geminiMonthlyBudget" min="0" step="0.01" value="50.00" aria-label="Gemini monthly budget limit">
+                            </td>
+                            <td class="remaining-cell" data-label="Daily Remaining">
+                                <span id="geminiDailyRemaining">$0.00</span>
+                            </td>
+                            <td class="progress-cell" data-label="Progress">
+                                <div class="budget-progress-bar">
+                                    <div class="budget-progress-fill" id="geminiDailyProgress" style="width: 0%"></div>
+                                </div>
+                                <span id="geminiDailyPercentage">0%</span>
+                            </td>
+                        </tr>
+                        <tr data-provider="openai">
+                            <td class="provider-name-cell" data-label="Provider">
+                                <div class="provider-logo openai-logo"></div>
+                                <span>OpenAI</span>
+                            </td>
+                            <td class="cost-cell" data-label="Cost/Image">$0.080/image</td>
+                            <td class="input-cell" data-label="Daily Limit">
+                                <input type="number" id="openaiDailyBudget" min="0" step="0.01" value="10.00" aria-label="OpenAI daily budget limit">
+                            </td>
+                            <td class="input-cell" data-label="Monthly Limit">
+                                <input type="number" id="openaiMonthlyBudget" min="0" step="0.01" value="100.00" aria-label="OpenAI monthly budget limit">
+                            </td>
+                            <td class="remaining-cell" data-label="Daily Remaining">
+                                <span id="openaiDailyRemaining">$0.00</span>
+                            </td>
+                            <td class="progress-cell" data-label="Progress">
+                                <div class="budget-progress-bar">
+                                    <div class="budget-progress-fill" id="openaiDailyProgress" style="width: 0%"></div>
+                                </div>
+                                <span id="openaiDailyPercentage">0%</span>
+                            </td>
+                        </tr>
+                        <tr data-provider="stablediffusion">
+                            <td class="provider-name-cell" data-label="Provider">
+                                <div class="provider-logo stablediffusion-logo"></div>
+                                <span>Stable Diffusion</span>
+                            </td>
+                            <td class="cost-cell" data-label="Cost/Image">$0.050/image</td>
+                            <td class="input-cell" data-label="Daily Limit">
+                                <input type="number" id="stablediffusionDailyBudget" min="0" step="0.01" value="7.50" aria-label="Stable Diffusion daily budget limit">
+                            </td>
+                            <td class="input-cell" data-label="Monthly Limit">
+                                <input type="number" id="stablediffusionMonthlyBudget" min="0" step="0.01" value="75.00" aria-label="Stable Diffusion monthly budget limit">
+                            </td>
+                            <td class="remaining-cell" data-label="Daily Remaining">
+                                <span id="stablediffusionDailyRemaining">$0.00</span>
+                            </td>
+                            <td class="progress-cell" data-label="Progress">
+                                <div class="budget-progress-bar">
+                                    <div class="budget-progress-fill" id="stablediffusionDailyProgress" style="width: 0%"></div>
+                                </div>
+                                <span id="stablediffusionDailyPercentage">0%</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Global Budget Controls -->
+                <div class="budget-global">
+                    <div class="form-group">
+                        <label for="globalMonthlyBudget">Global Monthly Budget</label>
+                        <input type="number" id="globalMonthlyBudget" min="0" step="1" value="200.00" aria-label="Global monthly budget limit">
+                    </div>
+                    <div class="global-budget-status">
+                        <span class="budget-label">Monthly Remaining:</span>
+                        <span class="budget-value" id="globalMonthlyRemaining">$0.00</span>
+                    </div>
+                </div>
+
+                <!-- Warning Threshold -->
+                <div class="budget-thresholds">
+                    <div class="form-group">
+                        <label for="budgetWarningThreshold">Warning Threshold</label>
+                        <select id="budgetWarningThreshold" aria-label="Budget warning threshold">
+                            <option value="50">50%</option>
+                            <option value="75" selected>75%</option>
+                            <option value="90">90%</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Analytics Dashboard -->
+            <div class="config-subsection">
+                <h3>Cost Analytics</h3>
+                <div class="analytics-dashboard">
+                    
+                    <!-- Summary cards -->
+                    <div class="analytics-summary">
+                        <div class="stat-card">
+                            <span class="stat-label">Total Spend</span>
+                            <span class="stat-value" id="totalSpend">$0.00</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Images Generated</span>
+                            <span class="stat-value" id="totalImages">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Avg Cost/Image</span>
+                            <span class="stat-value" id="avgCost">$0.00</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Cache Savings</span>
+                            <span class="stat-value" id="cacheSavings">$0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="analytics-charts">
+                        <div class="chart-container">
+                            <h4>Spend Trend (Last 30 Days)</h4>
+                            <canvas id="spendTrendChart" width="600" height="300" aria-label="Spend trend chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h4>Provider Breakdown</h4>
+                            <canvas id="providerBreakdownChart" width="300" height="300" aria-label="Provider breakdown chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Transaction table -->
+                    <div class="analytics-table">
+                        <h4>Recent Transactions</h4>
+                        <div class="table-container">
+                            <table id="transactionTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Provider</th>
+                                        <th>Category</th>
+                                        <th>Cost</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactionTableBody">
+                                    <tr>
+                                        <td colspan="5" class="no-data">No transactions yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Export button -->
+                    <div class="analytics-actions">
+                        <button id="exportAnalyticsBtn" class="btn-secondary">Export Report</button>
+                        <button id="clearAnalyticsBtn" class="btn-secondary">Clear Data</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="tab-content" id="quality-assurance-content" role="tabpanel" aria-labelledby="tab-quality-assurance" style="display: none;">
-            <!-- Quality assurance content will go here -->
+            <!-- Quality Assurance Configuration Section -->
+            <section class="qa-config-section" id="qaConfigSection">
+                <div class="qa-config-header">
+                    <h2>1.5. Quality Assurance</h2>
+                    <button class="toggle-btn" id="qaConfigToggle" aria-expanded="false">▼</button>
+                </div>
+                <div class="qa-config-content" id="qaConfigContent" style="display: none;">
+                    
+                    <!-- Preview Mode Toggle -->
+                    <div class="config-subsection">
+                        <h3>Preview Mode</h3>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="qaPreviewMode">
+                            <span>Enable Preview Generation (3-5 samples per category)</span>
+                        </label>
+                        <div class="form-group">
+                            <label for="qaSamplesPerCategory">Samples per Category: <span id="qaSamplesValue">5</span></label>
+                            <input type="range" id="qaSamplesPerCategory" min="3" max="10" value="5" class="slider">
+                        </div>
+                    </div>
+
+                    <!-- Consistency Thresholds -->
+                    <div class="config-subsection">
+                        <h3>Consistency Thresholds</h3>
+                        <div class="threshold-grid">
+                            <div class="form-group">
+                                <label for="qaConsistencyThreshold">Minimum Consistency Score: <span id="qaConsistencyValue">60</span></label>
+                                <input type="range" id="qaConsistencyThreshold" min="0" max="100" value="60" class="slider">
+                            </div>
+                            <div class="form-group">
+                                <label for="qaOutlierThreshold">Outlier Detection Threshold: <span id="qaOutlierValue">60</span></label>
+                                <input type="range" id="qaOutlierThreshold" min="0" max="100" value="60" class="slider">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Real-time Analysis Toggle -->
+                    <div class="config-subsection">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="qaRealTimeAnalysis" checked>
+                            <span>Enable Real-time Analysis (analyze images as they generate)</span>
+                        </label>
+                    </div>
+
+                    <!-- Regeneration Queue Status -->
+                    <div class="config-subsection">
+                        <h3>Regeneration Queue</h3>
+                        <div class="queue-status">
+                            <div class="stat-card">
+                                <span class="stat-label">Pending</span>
+                                <span class="stat-value" id="qaPendingCount">0</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Processing</span>
+                                <span class="stat-value" id="qaProcessingCount">0</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Completed</span>
+                                <span class="stat-value" id="qaCompletedCount">0</span>
+                            </div>
+                        </div>
+                        <button id="qaProcessQueueBtn" class="btn-secondary">Process Queue</button>
+                        <button id="qaClearQueueBtn" class="btn-secondary">Clear Queue</button>
+                    </div>
+
+                    <!-- Export Quality Report -->
+                    <div class="config-subsection">
+                        <h3>Quality Reports</h3>
+                        <button id="qaExportReportBtn" class="btn-secondary">Export Quality Report</button>
+                    </div>
+
+                </div>
+            </section>
         </div>
 
 
 
-        <!-- Quality Assurance Configuration Section -->
-        <section class="qa-config-section" id="qaConfigSection">
-            <div class="qa-config-header">
-                <h2>1.5. Quality Assurance</h2>
-                <button class="toggle-btn" id="qaConfigToggle" aria-expanded="false">▼</button>
-            </div>
-            <div class="qa-config-content" id="qaConfigContent" style="display: none;">
-                
-                <!-- Preview Mode Toggle -->
-                <div class="config-subsection">
-                    <h3>Preview Mode</h3>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="qaPreviewMode">
-                        <span>Enable Preview Generation (3-5 samples per category)</span>
-                    </label>
-                    <div class="form-group">
-                        <label for="qaSamplesPerCategory">Samples per Category: <span id="qaSamplesValue">5</span></label>
-                        <input type="range" id="qaSamplesPerCategory" min="3" max="10" value="5" class="slider">
-                    </div>
-                </div>
 
-                <!-- Consistency Thresholds -->
-                <div class="config-subsection">
-                    <h3>Consistency Thresholds</h3>
-                    <div class="threshold-grid">
-                        <div class="form-group">
-                            <label for="qaConsistencyThreshold">Minimum Consistency Score: <span id="qaConsistencyValue">60</span></label>
-                            <input type="range" id="qaConsistencyThreshold" min="0" max="100" value="60" class="slider">
-                        </div>
-                        <div class="form-group">
-                            <label for="qaOutlierThreshold">Outlier Detection Threshold: <span id="qaOutlierValue">60</span></label>
-                            <input type="range" id="qaOutlierThreshold" min="0" max="100" value="60" class="slider">
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Real-time Analysis Toggle -->
-                <div class="config-subsection">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="qaRealTimeAnalysis" checked>
-                        <span>Enable Real-time Analysis (analyze images as they generate)</span>
-                    </label>
-                </div>
 
-                <!-- Regeneration Queue Status -->
-                <div class="config-subsection">
-                    <h3>Regeneration Queue</h3>
-                    <div class="queue-status">
-                        <div class="stat-card">
-                            <span class="stat-label">Pending</span>
-                            <span class="stat-value" id="qaPendingCount">0</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">Processing</span>
-                            <span class="stat-value" id="qaProcessingCount">0</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">Completed</span>
-                            <span class="stat-value" id="qaCompletedCount">0</span>
-                        </div>
-                    </div>
-                    <button id="qaProcessQueueBtn" class="btn-secondary">Process Queue</button>
-                    <button id="qaClearQueueBtn" class="btn-secondary">Clear Queue</button>
-                </div>
 
-                <!-- Export Quality Report -->
-                <div class="config-subsection">
-                    <h3>Quality Reports</h3>
-                    <button id="qaExportReportBtn" class="btn-secondary">Export Quality Report</button>
-                </div>
 
-            </div>
-        </section>
-
-        <!-- Trait Layer Upload Area -->
-        <section class="trait-upload-section" id="traitUpload">
-            <h2>1. Generate Trait Layers</h2>
-            <div class="trait-categories">
-                <!-- Background Category -->
-                <div class="trait-category">
-                    <h3>Background</h3>
-                    <label for="bg-numTraits">Number of Traits: <span class="slider-value" id="bg-numTraits-value">20</span></label>
-                    <input type="range" id="bg-numTraits" min="13" max="50" value="20" class="slider">
-                    <label for="bg-complexity">Complexity: <span class="slider-value" id="bg-complexity-value">5</span></label>
-                    <input type="range" id="bg-complexity" min="1" max="10" value="5" class="slider">
-                    <label for="bg-colorSeed">Color Seed:</label>
-                    <input type="text" id="bg-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
-                    <div class="trait-preview-container"></div>
-                </div>
-
-                <!-- Body Category -->
-                <div class="trait-category">
-                    <h3>Body</h3>
-                    <label for="body-numTraits">Number of Traits: <span class="slider-value" id="body-numTraits-value">20</span></label>
-                    <input type="range" id="body-numTraits" min="13" max="50" value="20" class="slider">
-                    <label for="body-complexity">Complexity: <span class="slider-value" id="body-complexity-value">5</span></label>
-                    <input type="range" id="body-complexity" min="1" max="10" value="5" class="slider">
-                    <label for="body-colorSeed">Color Seed:</label>
-                    <input type="text" id="body-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
-                    <div class="trait-preview-container"></div>
-                </div>
-
-                <!-- Eyes Category -->
-                <div class="trait-category">
-                    <h3>Eyes</h3>
-                    <label for="eyes-numTraits">Number of Traits: <span class="slider-value" id="eyes-numTraits-value">20</span></label>
-                    <input type="range" id="eyes-numTraits" min="13" max="50" value="20" class="slider">
-                    <label for="eyes-complexity">Complexity: <span class="slider-value" id="eyes-complexity-value">5</span></label>
-                    <input type="range" id="eyes-complexity" min="1" max="10" value="5" class="slider">
-                    <label for="eyes-colorSeed">Color Seed:</label>
-                    <input type="text" id="eyes-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
-                    <div class="trait-preview-container"></div>
-                </div>
-
-                <!-- Mouth Category -->
-                <div class="trait-category">
-                    <h3>Mouth</h3>
-                    <label for="mouth-numTraits">Number of Traits: <span class="slider-value" id="mouth-numTraits-value">20</span></label>
-                    <input type="range" id="mouth-numTraits" min="13" max="50" value="20" class="slider">
-                    <label for="mouth-complexity">Complexity: <span class="slider-value" id="mouth-complexity-value">5</span></label>
-                    <input type="range" id="mouth-complexity" min="1" max="10" value="5" class="slider">
-                    <label for="mouth-colorSeed">Color Seed:</label>
-                    <input type="text" id="mouth-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
-                    <div class="trait-preview-container"></div>
-                </div>
-
-                <!-- Hat Category -->
-                <div class="trait-category">
-                    <h3>Hat</h3>
-                    <label for="hat-numTraits">Number of Traits: <span class="slider-value" id="hat-numTraits-value">20</span></label>
-                    <input type="range" id="hat-numTraits" min="13" max="50" value="20" class="slider">
-                    <label for="hat-complexity">Complexity: <span class="slider-value" id="hat-complexity-value">5</span></label>
-                    <input type="range" id="hat-complexity" min="1" max="10" value="5" class="slider">
-                    <label for="hat-colorSeed">Color Seed:</label>
-                    <input type="text" id="hat-colorSeed" placeholder="e.g., #FF5733 or random" class="color-seed-input">
-                    <div class="trait-preview-container"></div>
-                </div>
-            </div>
-            <div class="generate-traits-btn-container">
-                <button type="button" class="btn-primary" id="generateTraitsBtn">Generate Traits</button>
-            </div>
-        </section>
-
-        <!-- Rarity Configuration Area -->
-        <section class="rarity-config-section" id="rarityConfig">
-            <h2>2. Configure Rarity</h2>
-            <p class="rarity-status" id="rarityStatus">Generate traits first to configure rarity</p>
-            <div class="rarity-controls-container"></div>
-            <div class="rarity-validation-summary" id="rarityValidationSummary"></div>
-            <button type="button" class="btn-secondary" id="resetRarityBtn" style="display:none;">Reset All to Equal Weights</button>
-        </section>
-
-        <!-- Generation Controls -->
-        <section class="generation-section" id="generationControls">
-            <h2>3. Generate Collection</h2>
-            <form class="generation-form">
-                <div class="form-group">
-                    <label for="collectionSize">Collection Size:</label>
-                    <input type="number" id="collectionSize" min="1" max="10000" value="100">
-                </div>
-                
-                <div class="form-group">
-                    <label for="collectionName">Collection Name:</label>
-                    <input type="text" id="collectionName" placeholder="My NFT Collection">
-                </div>
-                
-                <canvas id="previewCanvas" width="500" height="500" aria-label="NFT Preview Canvas"></canvas>
-                
-                <button type="button" class="btn-primary" id="generateBtn">Generate Collection</button>
-                
-                <div class="progress-container">
-                    <div class="progress-bar"></div>
-                    <span class="progress-text">0%</span>
-                </div>
-            </form>
-        </section>
-
-        <!-- Output Area -->
-        <section class="output-section" id="outputArea">
-            <h2>Generated Collection</h2>
-            <div class="collection-grid"></div>
-            <button type="button" class="btn-secondary" id="downloadBtn">Download Collection</button>
-        </section>
     </div>
 
     <!-- Cost Optimization Modules -->

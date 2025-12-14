@@ -503,7 +503,7 @@ class BudgetManager {
 
     // Utility methods for UI integration
     async getBudgetSummary() {
-        const providers = ['openai', 'stablediffusion', 'procedural'];
+        const providers = ['gemini', 'openai', 'stablediffusion']; // Omit 'procedural' as it's free-only
         const summary = {
             providers: {},
             global: {

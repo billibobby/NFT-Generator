@@ -919,6 +919,21 @@ function initializeQAUI() {
 
 // ===== TAB NAVIGATION SYSTEM =====
 
+// Flag to track if tab system has been initialized
+let tabSystemInitialized = false;
+
+// Helper function to safely switch to rarity tab
+function switchToRarityTab() {
+    if (tabSystemInitialized) {
+        const rarityTab = document.getElementById('tab-rarity-collection');
+        if (rarityTab) {
+            rarityTab.click();
+            return true;
+        }
+    }
+    return false;
+}
+
 function initializeTabNavigation() {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabNavContainer = document.querySelector('.tab-nav');
@@ -975,6 +990,9 @@ function initializeTabNavigation() {
             }
         });
     }
+    
+    // Set flag to indicate tab system is initialized
+    tabSystemInitialized = true;
 }
 
 function switchToTab(tabId) {
@@ -2579,10 +2597,8 @@ async function generateAllTraits() {
     // Populate rarity controls after all traits are generated
     populateRarityControls();
     
-    // Scroll to rarity section
-    setTimeout(() => {
-        document.getElementById('rarityConfig').scrollIntoView({behavior: 'smooth'});
-    }, 500);
+    // Switch to Rarity & Collection tab
+    switchToRarityTab();
     
     console.log(`Generated ${generatedTraits} traits across ${categories.length} categories`);
 }
@@ -3248,9 +3264,13 @@ function initializeCollectionGeneration() {
             // Show output area
             if (outputArea) {
                 outputArea.classList.add('visible');
-                setTimeout(() => {
-                    outputArea.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                // Switch to Rarity & Collection tab and scroll to output
+                if (switchToRarityTab()) {
+                    // Optional: scroll to output section within tab after brief delay
+                    setTimeout(() => {
+                        outputArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 300);
+                }
             }
             
             // Show success message
@@ -5100,6 +5120,9 @@ function initializeProviderBudgetControls(provider) {
         updateBudgetStatus(provider);
         showSuccessMessage(`${provider} monthly budget updated to $${amount.toFixed(2)}`);
     });
+    
+    // Initial budget status update
+    updateBudgetStatus(provider);
 }
 
 function initializeGlobalBudgetControls() {
@@ -5115,6 +5138,9 @@ function initializeGlobalBudgetControls() {
         updateGlobalBudgetStatus();
         showSuccessMessage(`Global monthly budget updated to $${amount.toFixed(2)}`);
     });
+    
+    // Initial global budget status update
+    updateGlobalBudgetStatus();
 }
 
 function initializeWarningThresholdSelector() {
@@ -5389,10 +5415,8 @@ generateAllTraits = async function(forceGeneration = false) {
         // Populate rarity controls after regeneration
         populateRarityControls();
         
-        // Scroll to rarity section
-        setTimeout(() => {
-            document.getElementById('rarityConfig').scrollIntoView({behavior: 'smooth'});
-        }, 500);
+        // Switch to Rarity & Collection tab
+        switchToRarityTab();
         
         showSuccessMessage(`Smart regeneration completed: ${regenerationResult.regenerated.length} categories updated, ${regenerationResult.skipped.length} categories reused from cache.`);
         

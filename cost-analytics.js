@@ -28,7 +28,7 @@ class CostAnalytics {
     }
 
     async getSpendByProvider(period = 'monthly') {
-        const providers = ['openai', 'stablediffusion', 'procedural'];
+        const providers = ['gemini', 'openai', 'stablediffusion', 'procedural'];
         const spendData = {};
 
         for (const provider of providers) {
