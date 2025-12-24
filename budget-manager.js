@@ -1,5 +1,10 @@
 // NFT Generator - Budget Manager
-// Budget tracking and enforcement system with per-provider limits
+// Database: 'nft-generator-budget' (version 1)
+// Purpose: Budget tracking and enforcement system with per-provider limits
+// Object Stores:
+//   - spendRecords: Historical spending records per provider
+//   - budgetLimits: Configured budget limits (daily/monthly per provider)
+//   - budgetAlerts: Budget warning and alert history
 
 class BudgetManager {
     constructor() {
@@ -50,27 +55,37 @@ class BudgetManager {
 
                 request.onupgradeneeded = (event) => {
                     const db = event.target.result;
+                    const oldVersion = event.oldVersion;
+                    const newVersion = event.newVersion;
+                    
+                    console.log(`Upgrading budget database from version ${oldVersion} to ${newVersion}`);
 
-                    // Create spendRecords store
-                    if (!db.objectStoreNames.contains('spendRecords')) {
-                        const spendStore = db.createObjectStore('spendRecords', { keyPath: 'id', autoIncrement: true });
-                        spendStore.createIndex('timestamp', 'timestamp', { unique: false });
-                        spendStore.createIndex('provider', 'provider', { unique: false });
-                        spendStore.createIndex('category', 'category', { unique: false });
-                        spendStore.createIndex('date', 'date', { unique: false });
+                    // Version 1: Initial schema
+                    if (oldVersion < 1) {
+                        // Create spendRecords store
+                        if (!db.objectStoreNames.contains('spendRecords')) {
+                            const spendStore = db.createObjectStore('spendRecords', { keyPath: 'id', autoIncrement: true });
+                            spendStore.createIndex('timestamp', 'timestamp', { unique: false });
+                            spendStore.createIndex('provider', 'provider', { unique: false });
+                            spendStore.createIndex('category', 'category', { unique: false });
+                            spendStore.createIndex('date', 'date', { unique: false });
+                        }
+
+                        // Create budgetLimits store
+                        if (!db.objectStoreNames.contains('budgetLimits')) {
+                            db.createObjectStore('budgetLimits', { keyPath: 'provider' });
+                        }
+
+                        // Create budgetAlerts store
+                        if (!db.objectStoreNames.contains('budgetAlerts')) {
+                            const alertStore = db.createObjectStore('budgetAlerts', { keyPath: 'id', autoIncrement: true });
+                            alertStore.createIndex('timestamp', 'timestamp', { unique: false });
+                            alertStore.createIndex('provider', 'provider', { unique: false });
+                        }
                     }
 
-                    // Create budgetLimits store
-                    if (!db.objectStoreNames.contains('budgetLimits')) {
-                        db.createObjectStore('budgetLimits', { keyPath: 'provider' });
-                    }
-
-                    // Create budgetAlerts store
-                    if (!db.objectStoreNames.contains('budgetAlerts')) {
-                        const alertStore = db.createObjectStore('budgetAlerts', { keyPath: 'id', autoIncrement: true });
-                        alertStore.createIndex('timestamp', 'timestamp', { unique: false });
-                        alertStore.createIndex('provider', 'provider', { unique: false });
-                    }
+                    // Future version migrations would go here
+                    // if (oldVersion < 2) { ... }
                 };
             });
         } catch (error) {

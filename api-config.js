@@ -58,6 +58,7 @@ class APIConfigManager {
     
     async importConfiguration(jsonString) {
         try {
+            // Parse the original JSON string first
             const config = JSON.parse(jsonString);
             
             // Validate configuration structure
@@ -65,6 +66,9 @@ class APIConfigManager {
             if (!validation.isValid) {
                 throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
             }
+            
+            // Sanitize the parsed configuration object
+            const sanitizedConfig = this.sanitizeConfiguration(config);
             
             // Show warning to user
             const confirmed = confirm(
@@ -78,7 +82,7 @@ class APIConfigManager {
             }
             
             // Apply configuration
-            await this.applyConfiguration(config);
+            await this.applyConfiguration(sanitizedConfig);
             
             console.log('Configuration imported successfully');
             return true;
@@ -362,10 +366,58 @@ class APIConfigManager {
     
     sanitizeConfigValue(value) {
         if (typeof value === 'string') {
-            // Remove potentially dangerous characters
-            return value.replace(/[<>'"&]/g, '');
+            // Remove potentially dangerous characters and HTML tags
+            let sanitized = value
+                .replace(/[<>'"&]/g, '') // Remove HTML special chars
+                .replace(/javascript:/gi, '') // Remove javascript: protocol
+                .replace(/on\w+\s*=/gi, '') // Remove event handlers
+                .trim();
+            
+            // Limit string length to prevent DoS
+            if (sanitized.length > 1000) {
+                console.warn('Input truncated to 1000 characters');
+                sanitized = sanitized.substring(0, 1000);
+            }
+            
+            return sanitized;
         }
+        
+        if (typeof value === 'number') {
+            // Validate number is finite
+            if (!Number.isFinite(value)) {
+                console.warn('Invalid number value, defaulting to 0');
+                return 0;
+            }
+            return value;
+        }
+        
+        if (typeof value === 'boolean') {
+            return Boolean(value);
+        }
+        
         return value;
+    }
+
+    // Add new method for validating user inputs
+    validateUserInput(input, type = 'string', options = {}) {
+        const { minLength = 0, maxLength = 1000, min = 0, max = 10000 } = options;
+        
+        if (type === 'string') {
+            if (typeof input !== 'string') return { valid: false, error: 'Input must be a string' };
+            if (input.length < minLength) return { valid: false, error: `Minimum length is ${minLength}` };
+            if (input.length > maxLength) return { valid: false, error: `Maximum length is ${maxLength}` };
+            return { valid: true, value: this.sanitizeConfigValue(input) };
+        }
+        
+        if (type === 'number') {
+            const num = Number(input);
+            if (!Number.isFinite(num)) return { valid: false, error: 'Input must be a valid number' };
+            if (num < min) return { valid: false, error: `Minimum value is ${min}` };
+            if (num > max) return { valid: false, error: `Maximum value is ${max}` };
+            return { valid: true, value: num };
+        }
+        
+        return { valid: true, value: input };
     }
     
     sanitizeConfiguration(config) {

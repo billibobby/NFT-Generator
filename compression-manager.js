@@ -1,6 +1,24 @@
 // NFT Generator - Compression Manager
 // Image compression and resolution optimization to reduce storage and API costs
 
+// ===== CANVAS CONTEXT VALIDATION UTILITY =====
+
+// Canvas context validation utility
+function validateCanvasContext(canvas, contextType = '2d') {
+    if (!canvas) {
+        throw new Error('Canvas element is null or undefined');
+    }
+    
+    const ctx = canvas.getContext(contextType);
+    if (!ctx) {
+        throw new Error(`Failed to get ${contextType} context from canvas. This may indicate browser limitations or WebGL context loss.`);
+    }
+    
+    return ctx;
+}
+
+// ===== COMPRESSION MANAGER CLASS =====
+
 class CompressionManager {
     constructor() {
         this.isInitialized = false;
@@ -133,7 +151,7 @@ class CompressionManager {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                const ctx = validateCanvasContext(canvas);
                 
                 canvas.width = img.width;
                 canvas.height = img.height;
@@ -161,7 +179,7 @@ class CompressionManager {
 
         // Create new canvas with target resolution
         const optimizedCanvas = document.createElement('canvas');
-        const ctx = optimizedCanvas.getContext('2d');
+        const ctx = validateCanvasContext(optimizedCanvas);
         
         // Calculate aspect ratio preserving dimensions
         const aspectRatio = canvas.width / canvas.height;
@@ -387,7 +405,7 @@ class CompressionManager {
         try {
             const canvas = await this.dataURLToCanvas(dataURL);
             const thumbnailCanvas = document.createElement('canvas');
-            const ctx = thumbnailCanvas.getContext('2d');
+            const ctx = validateCanvasContext(thumbnailCanvas);
             
             thumbnailCanvas.width = size;
             thumbnailCanvas.height = size;

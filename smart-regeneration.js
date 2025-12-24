@@ -21,7 +21,7 @@ class SmartRegenerator {
         }
     }
 
-    generateConfigHash(category, config = null) {
+    async generateConfigHash(category, config = null) {
         // Get current configuration for the category
         const categoryConfig = config || this.getCurrentCategoryConfig(category);
         
@@ -40,7 +40,7 @@ class SmartRegenerator {
 
         // Create a stable hash from the configuration
         const configString = JSON.stringify(hashData, Object.keys(hashData).sort());
-        return this.createHash(configString);
+        return await this.createHash(configString);
     }
 
     getCurrentCategoryConfig(category) {
@@ -79,8 +79,21 @@ class SmartRegenerator {
         return {};
     }
 
-    createHash(input) {
-        // Simple hash function (for production, consider using crypto.subtle.digest)
+    async createHash(input) {
+        // Use SHA-256 for proper hashing (collision-resistant)
+        if (window.crypto && window.crypto.subtle) {
+            try {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(input);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            } catch (error) {
+                console.warn('SHA-256 hashing failed, using fallback:', error);
+            }
+        }
+
+        // Fallback for older browsers
         let hash = 0;
         if (input.length === 0) return hash.toString();
         
@@ -103,7 +116,7 @@ class SmartRegenerator {
         const allCategories = [];
 
         for (const category of categories) {
-            const currentHash = this.generateConfigHash(category);
+            const currentHash = await this.generateConfigHash(category);
             const storedHash = this.configHashes.get(category);
 
             allCategories.push({
@@ -133,7 +146,7 @@ class SmartRegenerator {
     }
 
     async hasConfigChanged(category) {
-        const currentHash = this.generateConfigHash(category);
+        const currentHash = await this.generateConfigHash(category);
         const storedHash = this.configHashes.get(category);
         
         return {

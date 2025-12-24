@@ -1,6 +1,22 @@
 // API Provider Implementations
 // Abstract provider interface and concrete implementations for AI services
 
+// ===== CANVAS CONTEXT VALIDATION UTILITY =====
+
+// Canvas context validation utility
+function validateCanvasContext(canvas, contextType = '2d') {
+    if (!canvas) {
+        throw new Error('Canvas element is null or undefined');
+    }
+    
+    const ctx = canvas.getContext(contextType);
+    if (!ctx) {
+        throw new Error(`Failed to get ${contextType} context from canvas. This may indicate browser limitations or WebGL context loss.`);
+    }
+    
+    return ctx;
+}
+
 // ===== BASE PROVIDER INTERFACE =====
 
 class BaseAPIProvider {
@@ -112,7 +128,7 @@ class GeminiProvider extends BaseAPIProvider {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
-        const ctx = canvas.getContext('2d');
+        const ctx = validateCanvasContext(canvas);
         
         // Create gradient background
         const gradient = ctx.createLinearGradient(0, 0, 512, 512);
@@ -600,7 +616,7 @@ class ProceduralProvider extends BaseAPIProvider {
         const canvas = document.createElement('canvas');
         canvas.width = 500;
         canvas.height = 500;
-        const ctx = canvas.getContext('2d');
+        const ctx = validateCanvasContext(canvas);
 
         // Parse color seed
         const baseColor = parseColorSeed(colorSeed, category, index);

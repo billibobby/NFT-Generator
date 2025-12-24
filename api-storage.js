@@ -1,3 +1,13 @@
+// ⚠️ SECURITY WARNING ⚠️
+// This implementation stores encryption keys in localStorage, which provides
+// MINIMAL security benefit over plaintext storage. Any script with access to
+// localStorage can extract both the encryption key and encrypted data.
+// 
+// This is NOT suitable for production use with sensitive API keys.
+// For production, implement server-side key management with proper HSM/KMS.
+// 
+// Current implementation is for DEVELOPMENT/TESTING purposes only.
+
 // API Key Storage System with AES-256-GCM Encryption
 // Secure localStorage management for NFT Generator API keys
 
@@ -5,21 +15,49 @@
 
 class EncryptionUtils {
     static async generateEncryptionKey() {
+        let salt, masterKey;
+        
         // Generate or retrieve salt for PBKDF2 (used only as salt, not as key material)
-        let salt = localStorage.getItem('nft_generator_encryption_salt');
+        try {
+            salt = localStorage.getItem('nft_generator_encryption_salt');
+        } catch (error) {
+            console.error('Failed to read encryption salt from localStorage:', error);
+            salt = null;
+        }
+        
         if (!salt) {
             const saltArray = crypto.getRandomValues(new Uint8Array(16));
             salt = btoa(String.fromCharCode(...saltArray));
-            localStorage.setItem('nft_generator_encryption_salt', salt);
+            try {
+                localStorage.setItem('nft_generator_encryption_salt', salt);
+            } catch (error) {
+                console.error('Failed to save encryption salt:', error);
+                if (error.name === 'QuotaExceededError') {
+                    throw new Error('Storage quota exceeded. Cannot save encryption keys.');
+                }
+            }
         }
         
         // Generate or retrieve master key (separate from salt for proper entropy)
-        let masterKey = localStorage.getItem('nft_generator_master_key');
+        try {
+            masterKey = localStorage.getItem('nft_generator_master_key');
+        } catch (error) {
+            console.error('Failed to read master key from localStorage:', error);
+            masterKey = null;
+        }
+        
         if (!masterKey) {
             // Generate a random master key with proper entropy
             const masterKeyArray = crypto.getRandomValues(new Uint8Array(32));
             masterKey = btoa(String.fromCharCode(...masterKeyArray));
-            localStorage.setItem('nft_generator_master_key', masterKey);
+            try {
+                localStorage.setItem('nft_generator_master_key', masterKey);
+            } catch (error) {
+                console.error('Failed to save master key:', error);
+                if (error.name === 'QuotaExceededError') {
+                    throw new Error('Storage quota exceeded. Cannot save encryption keys.');
+                }
+            }
         }
         
         // Convert to Uint8Arrays
@@ -128,11 +166,23 @@ class APIKeyStorage {
         if (!this.encryptionKey) {
             this.encryptionKey = await EncryptionUtils.generateEncryptionKey();
         }
+        
+        // Security warning - only show once
+        if (!this.securityWarningShown) {
+            console.warn('⚠️ SECURITY NOTICE: API keys are encrypted but the encryption key is stored in localStorage. This provides minimal protection against XSS attacks. For production use, implement server-side key management.');
+            this.securityWarningShown = true;
+        }
     }
     
     async saveAPIKey(providerName, apiKey) {
         try {
             await this.initializeEncryption();
+            
+            // Security warning for key storage
+            if (!sessionStorage.getItem('nft_generator_save_warning_shown')) {
+                console.warn('⚠️ Storing API key in browser localStorage. Keys are encrypted but encryption keys are also in localStorage. Not secure for production use.');
+                sessionStorage.setItem('nft_generator_save_warning_shown', 'true');
+            }
             
             // Get existing storage or create new
             const storage = this.getStorageObject();

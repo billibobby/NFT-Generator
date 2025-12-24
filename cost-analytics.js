@@ -1,6 +1,24 @@
 // NFT Generator - Cost Analytics Dashboard
 // Analytics system to track and visualize spending patterns
 
+// ===== CANVAS CONTEXT VALIDATION UTILITY =====
+
+// Canvas context validation utility
+function validateCanvasContext(canvas, contextType = '2d') {
+    if (!canvas) {
+        throw new Error('Canvas element is null or undefined');
+    }
+    
+    const ctx = canvas.getContext(contextType);
+    if (!ctx) {
+        throw new Error(`Failed to get ${contextType} context from canvas. This may indicate browser limitations or WebGL context loss.`);
+    }
+    
+    return ctx;
+}
+
+// ===== COST ANALYTICS CLASS =====
+
 class CostAnalytics {
     constructor(budgetManager) {
         this.budgetManager = budgetManager;
@@ -292,7 +310,7 @@ class CostAnalytics {
         const canvas = document.getElementById('spendTrendChart');
         if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
+        const ctx = validateCanvasContext(canvas);
         const trendData = await this.getSpendTrend('monthly', 'daily');
 
         // Clear canvas
@@ -381,7 +399,7 @@ class CostAnalytics {
         const canvas = document.getElementById('providerBreakdownChart');
         if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
+        const ctx = validateCanvasContext(canvas);
         const spendData = await this.getSpendByProvider('monthly');
 
         // Clear canvas

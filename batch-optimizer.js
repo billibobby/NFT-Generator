@@ -2,12 +2,21 @@
 // Optimize API calls through parallel processing and request deduplication
 
 class BatchOptimizer {
+    // Configuration constants
+    static DEFAULT_MAX_CONCURRENCY = 5;
+    static DEFAULT_MAX_QUEUE_ITERATIONS = 1000;
+    static REQUEST_TIMEOUT_MS = 300000; // 5 minutes
+    static QUEUE_PROCESSING_DELAY_MS = 100;
+    static ITERATION_WARNING_THRESHOLD = 50;
+
     constructor() {
-        this.maxConcurrency = 5;
+        this.maxConcurrency = BatchOptimizer.DEFAULT_MAX_CONCURRENCY;
         this.requestQueue = [];
         this.activeRequests = new Map();
         this.pendingRequests = new Map(); // Track in-flight requests for deduplication
         this.isProcessing = false;
+        this.queueIterations = 0;
+        this.maxQueueIterations = BatchOptimizer.DEFAULT_MAX_QUEUE_ITERATIONS;
         this.stats = {
             totalRequests: 0,
             deduplicatedRequests: 0,
@@ -18,7 +27,7 @@ class BatchOptimizer {
     }
 
     initialize(config = {}) {
-        this.maxConcurrency = config.maxConcurrency || 5;
+        this.maxConcurrency = config.maxConcurrency || BatchOptimizer.DEFAULT_MAX_CONCURRENCY;
         this.priorityLevels = config.priorityLevels || ['high', 'medium', 'low'];
         
         console.log(`Batch Optimizer initialized with concurrency: ${this.maxConcurrency}`);
@@ -46,7 +55,7 @@ class BatchOptimizer {
         const results = await this.processRequestsInParallel(uniqueRequests, maxConcurrency, batchId);
 
         // Map results back to original request order, handling duplicates
-        const finalResults = this.mapResultsToOriginalOrder(requests, results, duplicateMap);
+        const finalResults = this.mapResultsToOriginalOrder(requests, results, uniqueRequests, duplicateMap);
 
         this.stats.completedBatches++;
         this.stats.totalRequests += requests.length;
@@ -178,7 +187,8 @@ class BatchOptimizer {
 
     async checkPendingRequest(hash) {
         if (this.pendingRequests.has(hash)) {
-            const pendingPromise = this.pendingRequests.get(hash);
+            const requestData = this.pendingRequests.get(hash);
+            const pendingPromise = requestData?.promise;
             try {
                 return await pendingPromise;
             } catch (error) {
@@ -200,46 +210,89 @@ class BatchOptimizer {
             promise.resolve = resolvePromise;
             promise.reject = rejectPromise;
             
-            this.pendingRequests.set(hash, promise);
+            // Set timeout for cleanup
+            const timeoutId = setTimeout(() => {
+                console.warn(`Request timeout for hash ${hash}, cleaning up pending request`);
+                this.clearPendingRequest(hash);
+            }, BatchOptimizer.REQUEST_TIMEOUT_MS);
+            
+            const requestData = {
+                promise,
+                timeoutId,
+                createdAt: Date.now()
+            };
+            
+            this.pendingRequests.set(hash, requestData);
         }
     }
 
     shareResultWithPending(hash, result) {
         if (this.pendingRequests.has(hash)) {
-            const promise = this.pendingRequests.get(hash);
-            if (promise.resolve) {
-                promise.resolve(result);
+            const requestData = this.pendingRequests.get(hash);
+            
+            // Clear timeout
+            if (requestData.timeoutId) {
+                clearTimeout(requestData.timeoutId);
             }
+            
+            // Resolve promise
+            if (requestData.promise && requestData.promise.resolve) {
+                requestData.promise.resolve(result);
+            }
+            
             this.pendingRequests.delete(hash);
         }
     }
 
     clearPendingRequest(hash) {
         if (this.pendingRequests.has(hash)) {
-            const promise = this.pendingRequests.get(hash);
-            if (promise.reject) {
-                promise.reject(new Error('Request failed'));
+            const requestData = this.pendingRequests.get(hash);
+            
+            // Clear timeout if it exists
+            if (requestData.timeoutId) {
+                clearTimeout(requestData.timeoutId);
             }
+            
+            // Reject promise with timeout error
+            if (requestData.promise && requestData.promise.reject) {
+                requestData.promise.reject(new Error('Request timeout or failed'));
+            }
+            
             this.pendingRequests.delete(hash);
         }
     }
 
-    mapResultsToOriginalOrder(originalRequests, results, duplicateMap) {
+    cleanupExpiredRequests() {
+        const now = Date.now();
+        const expiredHashes = [];
+        
+        this.pendingRequests.forEach((requestData, hash) => {
+            if (now - requestData.createdAt > BatchOptimizer.REQUEST_TIMEOUT_MS) {
+                expiredHashes.push(hash);
+            }
+        });
+        
+        expiredHashes.forEach(hash => {
+            console.warn(`Cleaning up expired request: ${hash}`);
+            this.clearPendingRequest(hash);
+        });
+    }
+
+    mapResultsToOriginalOrder(originalRequests, results, uniqueRequests, duplicateMap) {
         const finalResults = new Array(originalRequests.length);
 
-        // First, place unique results
+        // First, place unique results at their original positions
         results.forEach((result, uniqueIndex) => {
-            const request = originalRequests.find(r => r.originalIndex !== undefined ? false : true);
-            // Find the original index for this unique request
-            let originalIndex = uniqueIndex;
-            
-            // This is a simplified mapping - in practice, we'd need to track original indices better
+            // Get the original index from the unique request
+            const originalIndex = uniqueRequests[uniqueIndex].originalIndex;
             finalResults[originalIndex] = result;
         });
 
         // Then, copy results to duplicate positions
-        duplicateMap.forEach((duplicateIndices, originalIndex) => {
-            const result = finalResults[originalIndex];
+        duplicateMap.forEach((duplicateIndices, uniqueIndex) => {
+            // Get the result for this unique request
+            const result = results[uniqueIndex];
+            // Copy to all duplicate positions
             duplicateIndices.forEach(dupIndex => {
                 finalResults[dupIndex] = { ...result }; // Clone the result
             });
@@ -388,7 +441,19 @@ class BatchOptimizer {
     }
 
     async processQueue() {
+        // Increment iteration counter and check limit
+        this.queueIterations++;
+        if (this.queueIterations >= this.maxQueueIterations) {
+            console.error(`Queue processing iteration limit exceeded (${this.maxQueueIterations}). Resetting queue to prevent infinite loop.`);
+            this.resetQueueState();
+            return;
+        }
+        
         if (this.isProcessing || this.requestQueue.length === 0) {
+            // Reset iterations when queue is empty and processing completes
+            if (this.requestQueue.length === 0) {
+                this.queueIterations = 0;
+            }
             return;
         }
 
@@ -403,7 +468,14 @@ class BatchOptimizer {
 
         // Continue processing if there are more items in queue
         if (this.requestQueue.length > 0) {
-            setTimeout(() => this.processQueue(), 100);
+            // Check if approaching iteration limit
+            if (this.queueIterations >= this.maxQueueIterations - BatchOptimizer.ITERATION_WARNING_THRESHOLD) {
+                console.warn(`Queue processing approaching iteration limit. Current: ${this.queueIterations}, Max: ${this.maxQueueIterations}`);
+            }
+            setTimeout(() => this.processQueue(), BatchOptimizer.QUEUE_PROCESSING_DELAY_MS);
+        } else {
+            // Reset iterations when queue is empty
+            this.queueIterations = 0;
         }
     }
 
@@ -466,6 +538,7 @@ class BatchOptimizer {
         this.activeRequests.clear();
         this.pendingRequests.clear();
         this.isProcessing = false;
+        this.queueIterations = 0;
         this.stats = {
             totalRequests: 0,
             deduplicatedRequests: 0,
@@ -473,6 +546,16 @@ class BatchOptimizer {
             averageLatency: 0,
             successRate: 0
         };
+    }
+
+    resetQueueState() {
+        console.warn('Resetting queue state due to processing issues');
+        this.requestQueue = [];
+        this.queueIterations = 0;
+        this.isProcessing = false;
+        
+        // Clean up any pending requests
+        this.cleanupExpiredRequests();
     }
 }
 

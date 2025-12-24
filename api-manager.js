@@ -7,7 +7,6 @@ const apiState = {
     providers: [], // Array of registered provider instances
     activeProvider: null, // Currently selected provider
     failoverQueue: [], // Ordered list of fallback providers
-    requestLog: [], // Array of request/response logs with timestamps
     quotaTracking: {} // Per-provider usage statistics
 };
 
@@ -75,6 +74,12 @@ class APIManager {
     }
     
     setActiveProvider(providerName) {
+        // Check if trying to set Gemini as active provider
+        if (providerName === 'gemini') {
+            console.error('⚠️ Gemini provider is not yet implemented for image generation. Please select OpenAI, Stable Diffusion, or Procedural provider.');
+            throw new Error('Gemini provider is not available for image generation');
+        }
+        
         const provider = this.getProvider(providerName);
         if (!provider) {
             throw new Error(`Provider not found: ${providerName}`);
@@ -183,7 +188,14 @@ class APIManager {
         
         for (const provider of apiState.providers) {
             try {
-                const isValid = await provider.validateKey();
+                // Add timeout to validation call (30 seconds max)
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Validation timeout')), 30000);
+                });
+                
+                const validationPromise = provider.validateKey();
+                const isValid = await Promise.race([validationPromise, timeoutPromise]);
+                
                 results[provider.getName()] = {
                     valid: isValid,
                     error: null
@@ -200,6 +212,7 @@ class APIManager {
                     error: error.message
                 };
                 provider.updateHealthScore(false);
+                console.warn(`Provider ${provider.getName()} validation failed:`, error.message);
             }
         }
         
@@ -217,7 +230,6 @@ class APIManager {
     
     clearRequestLog() {
         this.logger.clearLogs();
-        apiState.requestLog = [];
     }
     
     exportRequestLog() {
@@ -252,8 +264,9 @@ class APIManager {
     }
     
     updateFailoverQueue() {
-        // Default order: Procedural → Stable Diffusion → OpenAI → Gemini
-        const defaultOrder = ['procedural', 'stablediffusion', 'openai', 'gemini'];
+        // Default order: Procedural → Stable Diffusion → OpenAI
+        // Gemini is excluded until image generation is implemented
+        const defaultOrder = ['procedural', 'stablediffusion', 'openai'];
         
         apiState.failoverQueue = [];
         
@@ -349,15 +362,35 @@ class APIManager {
                 
                 // Check if provider should be re-enabled
                 if (!provider.isHealthy() && !this.isProviderInCooldown(provider.getName())) {
-                    // Try to validate key to see if provider recovered
-                    const isValid = await provider.validateKey();
-                    if (isValid) {
-                        provider.healthScore = 50; // Partial recovery
-                        console.log(`Provider ${provider.getName()} appears to have recovered`);
+                    try {
+                        // Try to validate key to see if provider recovered
+                        const isValid = await provider.validateKey();
+                        if (isValid) {
+                            provider.healthScore = 50; // Partial recovery
+                            console.log(`Provider ${provider.getName()} appears to have recovered`);
+                        }
+                    } catch (validationError) {
+                        console.warn(`Provider ${provider.getName()} validation failed during health check:`, validationError);
+                        // Update health score to reflect failure
+                        if (provider.healthScore > 0) {
+                            provider.healthScore = Math.max(0, provider.healthScore - 10);
+                        }
+                        
+                        // Track consecutive failures
+                        if (!provider.consecutiveFailures) {
+                            provider.consecutiveFailures = 0;
+                        }
+                        provider.consecutiveFailures++;
+                        
+                        if (provider.consecutiveFailures > 5) {
+                            console.error(`Provider ${provider.getName()} has failed ${provider.consecutiveFailures} consecutive health checks`);
+                        }
                     }
                 }
             } catch (error) {
                 console.warn(`Health check failed for ${provider.getName()}:`, error);
+                // Don't let one provider's failure stop health checks for others
+                continue;
             }
         }
     }

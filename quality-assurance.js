@@ -1,5 +1,27 @@
 // NFT Generator - Quality Assurance Engine
-// Image analysis, consistency scoring, outlier detection, and regeneration queue management
+// Database: 'nft-generator-qa' (version 1)
+// Purpose: Image analysis, consistency scoring, outlier detection, and regeneration queue management
+// Object Stores:
+//   - qaMetadata: Quality scores and approval status for analyzed images
+//   - regenerationQueue: Queue for regenerating images that failed quality checks
+
+// ===== CANVAS CONTEXT VALIDATION UTILITY =====
+
+// Canvas context validation utility
+function validateCanvasContext(canvas, contextType = '2d') {
+    if (!canvas) {
+        throw new Error('Canvas element is null or undefined');
+    }
+    
+    const ctx = canvas.getContext(contextType);
+    if (!ctx) {
+        throw new Error(`Failed to get ${contextType} context from canvas. This may indicate browser limitations or WebGL context loss.`);
+    }
+    
+    return ctx;
+}
+
+// ===== QUALITY ASSURANCE ENGINE CLASS =====
 
 class QualityAssuranceEngine {
     constructor() {
@@ -36,23 +58,33 @@ class QualityAssuranceEngine {
 
                 request.onupgradeneeded = (event) => {
                     const db = event.target.result;
+                    const oldVersion = event.oldVersion;
+                    const newVersion = event.newVersion;
+                    
+                    console.log(`Upgrading QA database from version ${oldVersion} to ${newVersion}`);
 
-                    // QA Metadata Store
-                    if (!db.objectStoreNames.contains('qaMetadata')) {
-                        const qaStore = db.createObjectStore('qaMetadata', { keyPath: 'cacheKey' });
-                        qaStore.createIndex('category', 'category', { unique: false });
-                        qaStore.createIndex('approved', 'approved', { unique: false });
-                        qaStore.createIndex('score', 'score', { unique: false });
-                        qaStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    // Version 1: Initial schema
+                    if (oldVersion < 1) {
+                        // QA Metadata Store
+                        if (!db.objectStoreNames.contains('qaMetadata')) {
+                            const qaStore = db.createObjectStore('qaMetadata', { keyPath: 'cacheKey' });
+                            qaStore.createIndex('category', 'category', { unique: false });
+                            qaStore.createIndex('approved', 'approved', { unique: false });
+                            qaStore.createIndex('score', 'score', { unique: false });
+                            qaStore.createIndex('timestamp', 'timestamp', { unique: false });
+                        }
+
+                        // Regeneration Queue Store
+                        if (!db.objectStoreNames.contains('regenerationQueue')) {
+                            const regenStore = db.createObjectStore('regenerationQueue', { keyPath: 'id', autoIncrement: true });
+                            regenStore.createIndex('category', 'category', { unique: false });
+                            regenStore.createIndex('status', 'status', { unique: false });
+                            regenStore.createIndex('priority', 'priority', { unique: false });
+                        }
                     }
 
-                    // Regeneration Queue Store
-                    if (!db.objectStoreNames.contains('regenerationQueue')) {
-                        const regenStore = db.createObjectStore('regenerationQueue', { keyPath: 'id', autoIncrement: true });
-                        regenStore.createIndex('category', 'category', { unique: false });
-                        regenStore.createIndex('status', 'status', { unique: false });
-                        regenStore.createIndex('priority', 'priority', { unique: false });
-                    }
+                    // Future version migrations would go here
+                    // if (oldVersion < 2) { ... }
                 };
             });
         } catch (error) {
@@ -66,7 +98,7 @@ class QualityAssuranceEngine {
     async calculatePerceptualHash(imageDataURL) {
         try {
             const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = validateCanvasContext(canvas);
             canvas.width = 32;
             canvas.height = 32;
 
@@ -155,7 +187,7 @@ class QualityAssuranceEngine {
     async analyzeColorDistribution(imageDataURL) {
         try {
             const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = validateCanvasContext(canvas);
             canvas.width = 100;
             canvas.height = 100;
 
@@ -232,7 +264,7 @@ class QualityAssuranceEngine {
     async calculateEdgeDensity(imageDataURL) {
         try {
             const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = validateCanvasContext(canvas);
             canvas.width = 100;
             canvas.height = 100;
 
@@ -292,7 +324,7 @@ class QualityAssuranceEngine {
     async analyzeBrightness(imageDataURL) {
         try {
             const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = validateCanvasContext(canvas);
             canvas.width = 100;
             canvas.height = 100;
 

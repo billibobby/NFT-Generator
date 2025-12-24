@@ -67,6 +67,13 @@
                                 </span>
                             </div>
                         </div>
+                        
+                        <!-- Security Notice Banner -->
+                        <div class="security-notice-banner" style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 12px; margin-bottom: 20px; color: #856404;">
+                            🔒 <strong>Security Notice:</strong> API keys are stored locally in your browser with encryption. This is suitable for development/testing but not recommended for production use with sensitive keys.
+                            <a href="#" onclick="alert('API keys are encrypted using AES-256-GCM but both the encrypted data and encryption key are stored in localStorage. This provides minimal protection against XSS attacks. For production use, implement server-side key management with proper HSM/KMS solutions.'); return false;" style="color: #856404; text-decoration: underline;">Learn More</a>
+                        </div>
+                        
                         <div class="provider-cards-grid" id="apiProviderCards">
                             
                             <!-- Gemini Provider Card -->

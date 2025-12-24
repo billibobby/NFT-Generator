@@ -1,15 +1,29 @@
 // NFT Generator - IndexedDB Cache Manager
-// Persistent caching layer for generated trait images across sessions
+// Database: 'nft-generator-cache' (version 1)
+// Purpose: Persistent caching layer for generated trait images across sessions
+// Object Stores:
+//   - traitImages: Cached trait image data
+//   - cacheMetadata: Cache statistics and metadata
+//   - configHashes: Configuration hashes for smart regeneration
+//   - qaMetadata: Quality assurance metadata linked to cached images
+//   - regenerationQueue: Queue for regenerating cached images that failed QA
 
 class ImageCacheManager {
+    // Configuration constants
+    static DEFAULT_MAX_CACHE_SIZE_BYTES = 500 * 1024 * 1024; // 500MB
+    static DEFAULT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    static FALLBACK_CACHE_MAX_ENTRIES = 500;
+    static CLEANUP_PERCENTAGE = 0.25;
+    static ESTIMATED_ENTRY_SIZE_BYTES = 50000;
+
     constructor() {
         this.db = null;
         this.dbName = 'nft-generator-cache';
         this.dbVersion = 1;
         this.isInitialized = false;
         this.fallbackCache = new Map(); // In-memory fallback
-        this.maxCacheSize = 500 * 1024 * 1024; // 500MB
-        this.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+        this.maxCacheSize = ImageCacheManager.DEFAULT_MAX_CACHE_SIZE_BYTES;
+        this.maxAge = ImageCacheManager.DEFAULT_MAX_AGE_MS;
         this.stats = {
             hits: 0,
             misses: 0,
@@ -44,41 +58,51 @@ class ImageCacheManager {
 
                 request.onupgradeneeded = (event) => {
                     const db = event.target.result;
+                    const oldVersion = event.oldVersion;
+                    const newVersion = event.newVersion;
+                    
+                    console.log(`Upgrading cache database from version ${oldVersion} to ${newVersion}`);
 
-                    // Create traitImages store
-                    if (!db.objectStoreNames.contains('traitImages')) {
-                        const traitStore = db.createObjectStore('traitImages', { keyPath: 'cacheKey' });
-                        traitStore.createIndex('category', 'category', { unique: false });
-                        traitStore.createIndex('timestamp', 'timestamp', { unique: false });
-                        traitStore.createIndex('provider', 'provider', { unique: false });
+                    // Version 1: Initial schema
+                    if (oldVersion < 1) {
+                        // Create traitImages store
+                        if (!db.objectStoreNames.contains('traitImages')) {
+                            const traitStore = db.createObjectStore('traitImages', { keyPath: 'cacheKey' });
+                            traitStore.createIndex('category', 'category', { unique: false });
+                            traitStore.createIndex('timestamp', 'timestamp', { unique: false });
+                            traitStore.createIndex('provider', 'provider', { unique: false });
+                        }
+
+                        // Create cacheMetadata store
+                        if (!db.objectStoreNames.contains('cacheMetadata')) {
+                            db.createObjectStore('cacheMetadata', { keyPath: 'key' });
+                        }
+
+                        // Create configHashes store
+                        if (!db.objectStoreNames.contains('configHashes')) {
+                            db.createObjectStore('configHashes', { keyPath: 'category' });
+                        }
+
+                        // QA Metadata Store (for cache-related QA data)
+                        if (!db.objectStoreNames.contains('qaMetadata')) {
+                            const qaStore = db.createObjectStore('qaMetadata', { keyPath: 'cacheKey' });
+                            qaStore.createIndex('category', 'category', { unique: false });
+                            qaStore.createIndex('approved', 'approved', { unique: false });
+                            qaStore.createIndex('score', 'score', { unique: false });
+                            qaStore.createIndex('timestamp', 'timestamp', { unique: false });
+                        }
+
+                        // Regeneration Queue Store (for cache-related regeneration)
+                        if (!db.objectStoreNames.contains('regenerationQueue')) {
+                            const regenStore = db.createObjectStore('regenerationQueue', { keyPath: 'id', autoIncrement: true });
+                            regenStore.createIndex('category', 'category', { unique: false });
+                            regenStore.createIndex('status', 'status', { unique: false }); // 'pending', 'processing', 'completed', 'failed'
+                            regenStore.createIndex('priority', 'priority', { unique: false });
+                        }
                     }
 
-                    // Create cacheMetadata store
-                    if (!db.objectStoreNames.contains('cacheMetadata')) {
-                        db.createObjectStore('cacheMetadata', { keyPath: 'key' });
-                    }
-
-                    // Create configHashes store
-                    if (!db.objectStoreNames.contains('configHashes')) {
-                        db.createObjectStore('configHashes', { keyPath: 'category' });
-                    }
-
-                    // QA Metadata Store
-                    if (!db.objectStoreNames.contains('qaMetadata')) {
-                        const qaStore = db.createObjectStore('qaMetadata', { keyPath: 'cacheKey' });
-                        qaStore.createIndex('category', 'category', { unique: false });
-                        qaStore.createIndex('approved', 'approved', { unique: false });
-                        qaStore.createIndex('score', 'score', { unique: false });
-                        qaStore.createIndex('timestamp', 'timestamp', { unique: false });
-                    }
-
-                    // Regeneration Queue Store
-                    if (!db.objectStoreNames.contains('regenerationQueue')) {
-                        const regenStore = db.createObjectStore('regenerationQueue', { keyPath: 'id', autoIncrement: true });
-                        regenStore.createIndex('category', 'category', { unique: false });
-                        regenStore.createIndex('status', 'status', { unique: false }); // 'pending', 'processing', 'completed', 'failed'
-                        regenStore.createIndex('priority', 'priority', { unique: false });
-                    }
+                    // Future version migrations would go here
+                    // if (oldVersion < 2) { ... }
                 };
             });
         } catch (error) {
@@ -97,7 +121,7 @@ class ImageCacheManager {
         }
 
         try {
-            const transaction = this.db.transaction(['traitImages'], 'readwrite');
+            const transaction = this.db.transaction(['traitImages'], 'readonly');
             const store = transaction.objectStore('traitImages');
             const request = store.get(cacheKey);
 
@@ -105,12 +129,21 @@ class ImageCacheManager {
                 request.onsuccess = () => {
                     const result = request.result;
                     if (result) {
-                        // Update access timestamp
-                        result.lastAccessed = Date.now();
-                        store.put(result);
-                        
                         this.stats.hits++;
                         this.emitEvent('cacheManager:hit', { cacheKey, size: result.size });
+                        
+                        // Update lastAccessed asynchronously (non-blocking)
+                        setTimeout(() => {
+                            try {
+                                const updateTx = this.db.transaction(['traitImages'], 'readwrite');
+                                const updateStore = updateTx.objectStore('traitImages');
+                                result.lastAccessed = Date.now();
+                                updateStore.put(result);
+                            } catch (err) {
+                                // Silent fail - not critical
+                            }
+                        }, 0);
+                        
                         resolve(result);
                     } else {
                         this.stats.misses++;
@@ -317,12 +350,12 @@ class ImageCacheManager {
     async cleanup(maxAge = this.maxAge, maxSize = this.maxCacheSize) {
         if (!this.isInitialized) {
             // Simple LRU cleanup for fallback cache
-            if (this.fallbackCache.size > 500) {
+            if (this.fallbackCache.size > ImageCacheManager.FALLBACK_CACHE_MAX_ENTRIES) {
                 const entries = Array.from(this.fallbackCache.entries());
                 entries.sort((a, b) => (a[1].lastAccessed || 0) - (b[1].lastAccessed || 0));
                 
-                // Remove oldest 25% of entries
-                const toRemove = Math.floor(entries.length * 0.25);
+                // Remove oldest entries
+                const toRemove = Math.floor(entries.length * ImageCacheManager.CLEANUP_PERCENTAGE);
                 for (let i = 0; i < toRemove; i++) {
                     this.fallbackCache.delete(entries[i][0]);
                 }
@@ -372,7 +405,7 @@ class ImageCacheManager {
                             }
 
                             this.stats.entryCount -= entriesToDelete.length;
-                            this.stats.totalSize = Math.max(0, this.stats.totalSize - entriesToDelete.length * 50000); // Estimate
+                            this.stats.totalSize = Math.max(0, this.stats.totalSize - entriesToDelete.length * ImageCacheManager.ESTIMATED_ENTRY_SIZE_BYTES); // Estimate
                             this.saveStats();
 
                             console.log(`Cache cleanup completed: removed ${entriesToDelete.length} entries`);

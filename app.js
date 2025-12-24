@@ -112,6 +112,146 @@ const configCache = {
 // DOM element references (cached for performance)
 let domRefs = {};
 
+// ===== LOCALSTORAGE UTILITY WITH QUOTA ERROR HANDLING =====
+
+const LocalStorageUtil = {
+    setItem(key, value) {
+        try {
+            localStorage.setItem(key, value);
+            return true;
+        } catch (error) {
+            if (error.name === 'QuotaExceededError') {
+                console.error('LocalStorage quota exceeded. Clearing old data...');
+                if (window.showToast) {
+                    showToast('Storage limit reached. Some settings may not be saved.', 'warning');
+                }
+                
+                // Optionally clear old data
+                try {
+                    const keysToPreserve = ['nft_generator_api_keys', 'nft_generator_encryption_salt', 'nft_generator_master_key'];
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
+                        const storageKey = localStorage.key(i);
+                        if (!keysToPreserve.includes(storageKey)) {
+                            localStorage.removeItem(storageKey);
+                        }
+                    }
+                    
+                    // Retry after cleanup
+                    localStorage.setItem(key, value);
+                    return true;
+                } catch (retryError) {
+                    console.error('Failed to save after cleanup:', retryError);
+                    return false;
+                }
+            } else {
+                console.error('LocalStorage error:', error);
+                return false;
+            }
+        }
+    },
+
+    getItem(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (error) {
+            console.error('LocalStorage read error:', error);
+            return null;
+        }
+    }
+};
+
+// ===== EVENT LISTENER REGISTRY FOR CLEANUP =====
+
+const eventListenerRegistry = {
+    listeners: [],
+    intervals: [],
+    timeouts: [],
+
+    // Register an event listener
+    register(element, eventType, handler, options) {
+        if (!element) return;
+        element.addEventListener(eventType, handler, options);
+        this.listeners.push({ element, eventType, handler, options });
+    },
+
+    // Register a window event listener
+    registerWindow(eventType, handler, options) {
+        this.register(window, eventType, handler, options);
+    },
+
+    // Register an interval
+    registerInterval(intervalId) {
+        this.intervals.push(intervalId);
+    },
+
+    // Register a timeout
+    registerTimeout(timeoutId) {
+        this.timeouts.push(timeoutId);
+    },
+
+    // Remove all registered listeners and clear intervals/timeouts
+    cleanup() {
+        console.log(`Cleaning up ${this.listeners.length} event listeners, ${this.intervals.length} intervals, ${this.timeouts.length} timeouts`);
+        
+        // Remove all event listeners
+        this.listeners.forEach(({ element, eventType, handler, options }) => {
+            try {
+                element.removeEventListener(eventType, handler, options);
+            } catch (error) {
+                console.warn('Failed to remove event listener:', error);
+            }
+        });
+
+        // Clear all intervals
+        this.intervals.forEach(intervalId => {
+            try {
+                clearInterval(intervalId);
+            } catch (error) {
+                console.warn('Failed to clear interval:', error);
+            }
+        });
+
+        // Clear all timeouts
+        this.timeouts.forEach(timeoutId => {
+            try {
+                clearTimeout(timeoutId);
+            } catch (error) {
+                console.warn('Failed to clear timeout:', error);
+            }
+        });
+
+        // Reset arrays
+        this.listeners = [];
+        this.intervals = [];
+        this.timeouts = [];
+        
+        console.log('Event listener cleanup completed');
+    }
+};
+
+// ===== DEBOUNCE UTILITY FOR SLIDER INPUTS =====
+
+// Debounce utility for slider inputs
+function debounce(func, delay = 300) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
+// Register cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    eventListenerRegistry.cleanup();
+});
+
+// Also cleanup on visibility change (when tab is closed/hidden)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+        eventListenerRegistry.cleanup();
+    }
+});
+
 // ===== STYLE PRESETS LIBRARY =====
 
 const StylePresets = new Map([
@@ -718,7 +858,7 @@ function initializeSecurityWarnings() {
     }
     
     // Listen for security context events
-    window.addEventListener('security:insecure-context', (event) => {
+    eventListenerRegistry.registerWindow('security:insecure-context', (event) => {
         const httpsWarning = document.getElementById('httpsWarning');
         if (httpsWarning) {
             httpsWarning.style.display = 'inline';
@@ -743,7 +883,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     initializeCategorySubTabs();
     
     // Restore last selected category
-    const savedCategory = localStorage.getItem('activeTraitCategory');
+    const savedCategory = LocalStorageUtil.getItem('activeTraitCategory');
     if (savedCategory && ['background', 'body', 'eyes', 'mouth', 'hat'].includes(savedCategory)) {
         switchTraitCategory(savedCategory);
     }
@@ -773,7 +913,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await window.qualityAssuranceEngine.initialize();
 
     // Load QA settings from localStorage
-    const savedQASettings = localStorage.getItem('qaSettings');
+    const savedQASettings = LocalStorageUtil.getItem('qaSettings');
     if (savedQASettings) {
         Object.assign(configCache.qaSettings, JSON.parse(savedQASettings));
     }
@@ -796,7 +936,7 @@ function initializeQAUI() {
     // QA Config Toggle
     const qaToggle = document.getElementById('qaConfigToggle');
     if (qaToggle) {
-        qaToggle.addEventListener('click', () => {
+        eventListenerRegistry.register(qaToggle, 'click', () => {
             const content = document.getElementById('qaConfigContent');
             const isExpanded = content.style.display !== 'none';
             content.style.display = isExpanded ? 'none' : 'block';
@@ -809,9 +949,16 @@ function initializeQAUI() {
     const previewModeToggle = document.getElementById('qaPreviewMode');
     if (previewModeToggle) {
         previewModeToggle.checked = configCache.qaSettings.previewMode;
+        eventListenerRegistry.register(previewModeToggle, 'change', (e) => {
+            configCache.qaSettings.previewMode = e.target.checked;
+            LocalStorageUtil.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        });
+    }
+    if (previewModeToggle) {
+        previewModeToggle.checked = configCache.qaSettings.previewMode;
         previewModeToggle.addEventListener('change', (e) => {
             configCache.qaSettings.previewMode = e.target.checked;
-            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+            LocalStorageUtil.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
         });
     }
 
@@ -820,11 +967,15 @@ function initializeQAUI() {
     if (samplesSlider) {
         samplesSlider.value = configCache.qaSettings.previewSamplesPerCategory;
         document.getElementById('qaSamplesValue').textContent = configCache.qaSettings.previewSamplesPerCategory;
+        const debouncedSamplesUpdate = debounce((value) => {
+            configCache.qaSettings.previewSamplesPerCategory = value;
+            LocalStorageUtil.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        }, 300);
+        
         samplesSlider.addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
-            document.getElementById('qaSamplesValue').textContent = value;
-            configCache.qaSettings.previewSamplesPerCategory = value;
-            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+            document.getElementById('qaSamplesValue').textContent = value; // Immediate feedback
+            debouncedSamplesUpdate(value); // Debounced save
         });
     }
 
@@ -833,11 +984,15 @@ function initializeQAUI() {
     if (consistencySlider) {
         consistencySlider.value = configCache.qaSettings.consistencyThreshold;
         document.getElementById('qaConsistencyValue').textContent = configCache.qaSettings.consistencyThreshold;
+        const debouncedConsistencyUpdate = debounce((value) => {
+            configCache.qaSettings.consistencyThreshold = value;
+            LocalStorageUtil.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        }, 300);
+        
         consistencySlider.addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
-            document.getElementById('qaConsistencyValue').textContent = value;
-            configCache.qaSettings.consistencyThreshold = value;
-            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+            document.getElementById('qaConsistencyValue').textContent = value; // Immediate feedback
+            debouncedConsistencyUpdate(value); // Debounced save
         });
     }
 
@@ -846,11 +1001,15 @@ function initializeQAUI() {
     if (outlierSlider) {
         outlierSlider.value = configCache.qaSettings.outlierThreshold;
         document.getElementById('qaOutlierValue').textContent = configCache.qaSettings.outlierThreshold;
+        const debouncedOutlierUpdate = debounce((value) => {
+            configCache.qaSettings.outlierThreshold = value;
+            LocalStorageUtil.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+        }, 300);
+        
         outlierSlider.addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
-            document.getElementById('qaOutlierValue').textContent = value;
-            configCache.qaSettings.outlierThreshold = value;
-            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+            document.getElementById('qaOutlierValue').textContent = value; // Immediate feedback
+            debouncedOutlierUpdate(value); // Debounced save
         });
     }
 
@@ -860,7 +1019,7 @@ function initializeQAUI() {
         realTimeToggle.checked = configCache.qaSettings.enableRealTimeAnalysis;
         realTimeToggle.addEventListener('change', (e) => {
             configCache.qaSettings.enableRealTimeAnalysis = e.target.checked;
-            localStorage.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
+            LocalStorageUtil.setItem('qaSettings', JSON.stringify(configCache.qaSettings));
         });
     }
 
@@ -940,14 +1099,14 @@ function initializeTabNavigation() {
     
     // Add click event listeners to tab buttons
     tabButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
+        eventListenerRegistry.register(button, 'click', (e) => {
             switchToTab(e.currentTarget.dataset.tab);
         });
     });
     
     // Add keyboard navigation
     if (tabNavContainer) {
-        tabNavContainer.addEventListener('keydown', (e) => {
+        eventListenerRegistry.register(tabNavContainer, 'keydown', (e) => {
             const currentTab = document.querySelector('.tab-button[aria-selected="true"]');
             
             // Guard against missing aria-selected tab
@@ -1017,7 +1176,7 @@ function switchToTab(tabId) {
         activeContent.style.display = 'block';
         
         // Store active tab in localStorage
-        localStorage.setItem('activeTab', tabId);
+        LocalStorageUtil.setItem('activeTab', tabId);
         
         // Dispatch custom event
         window.dispatchEvent(new CustomEvent('tab:changed', {
@@ -1027,7 +1186,7 @@ function switchToTab(tabId) {
 }
 
 function loadActiveTab() {
-    const savedTab = localStorage.getItem('activeTab');
+    const savedTab = LocalStorageUtil.getItem('activeTab');
     if (savedTab && document.querySelector(`[data-tab="${savedTab}"]`)) {
         switchToTab(savedTab);
     } else {
@@ -1247,25 +1406,46 @@ function showToast(message, type = 'info') {
     }, 4000);
 }
 
+function validateDOMElement(elementId, isCritical = true) {
+    const element = document.getElementById(elementId);
+    if (element === null) {
+        if (isCritical) {
+            console.error(`Critical DOM element missing: #${elementId}`);
+        } else {
+            console.warn(`Optional DOM element missing: #${elementId}`);
+        }
+    }
+    return element;
+}
+
 function initializeDOMReferences() {
     const categories = ['bg', 'body', 'eyes', 'mouth', 'hat'];
+    
+    // Validate critical unified controls
+    const generateTraitsBtnElement = validateDOMElement('generateTraitsBtn', true);
+    const unifiedNumTraitsElement = validateDOMElement('unified-numTraits', true);
+    const unifiedComplexityElement = validateDOMElement('unified-complexity', true);
+    const unifiedColorSeedElement = validateDOMElement('unified-colorSeed', true);
+    const unifiedPreviewGridElement = validateDOMElement('unified-preview-grid', true);
+    const unifiedNumTraitsValueElement = validateDOMElement('unified-numTraits-value', true);
+    const unifiedComplexityValueElement = validateDOMElement('unified-complexity-value', true);
     
     domRefs = {
         sliders: {},
         valueSpans: {},
         colorInputs: {},
         previewContainers: {},
-        generateBtn: document.getElementById('generateTraitsBtn'),
+        generateBtn: generateTraitsBtnElement,
         // Unified controls
         unifiedControls: {
-            numTraits: document.getElementById('unified-numTraits'),
-            complexity: document.getElementById('unified-complexity'),
-            colorSeed: document.getElementById('unified-colorSeed'),
-            previewContainer: document.getElementById('unified-preview-grid')
+            numTraits: unifiedNumTraitsElement,
+            complexity: unifiedComplexityElement,
+            colorSeed: unifiedColorSeedElement,
+            previewContainer: unifiedPreviewGridElement
         },
         unifiedValueSpans: {
-            numTraits: document.getElementById('unified-numTraits-value'),
-            complexity: document.getElementById('unified-complexity-value')
+            numTraits: unifiedNumTraitsValueElement,
+            complexity: unifiedComplexityValueElement
         },
         categorySubTabs: document.querySelectorAll('.category-sub-tab'),
         currentCategory: 'background'
@@ -1276,27 +1456,77 @@ function initializeDOMReferences() {
         // Map 'bg' to 'background' for consistency with global state
         const stateKey = category === 'bg' ? 'background' : category;
         
-        domRefs.sliders[stateKey] = {
-            numTraits: document.getElementById(`${category}-numTraits`),
-            complexity: document.getElementById(`${category}-complexity`)
-        };
+        // Validate optional per-category elements
+        const numTraitsSlider = validateDOMElement(`${category}-numTraits`, false);
+        const complexitySlider = validateDOMElement(`${category}-complexity`, false);
+        const numTraitsValueSpan = validateDOMElement(`${category}-numTraits-value`, false);
+        const complexityValueSpan = validateDOMElement(`${category}-complexity-value`, false);
+        const colorSeedInput = validateDOMElement(`${category}-colorSeed`, false);
         
-        domRefs.valueSpans[stateKey] = {
-            numTraits: document.getElementById(`${category}-numTraits-value`),
-            complexity: document.getElementById(`${category}-complexity-value`)
-        };
+        // Only assign if elements exist
+        if (numTraitsSlider || complexitySlider) {
+            domRefs.sliders[stateKey] = {
+                numTraits: numTraitsSlider,
+                complexity: complexitySlider
+            };
+        }
         
-        domRefs.colorInputs[stateKey] = document.getElementById(`${category}-colorSeed`);
+        if (numTraitsValueSpan || complexityValueSpan) {
+            domRefs.valueSpans[stateKey] = {
+                numTraits: numTraitsValueSpan,
+                complexity: complexityValueSpan
+            };
+        }
+        
+        if (colorSeedInput) {
+            domRefs.colorInputs[stateKey] = colorSeedInput;
+        }
         
         // Find preview container within the trait category (if it exists)
-        const traitCategory = document.querySelector(`#${category}-numTraits`);
-        if (traitCategory) {
-            const container = traitCategory.closest('.trait-category');
+        if (numTraitsSlider) {
+            const container = numTraitsSlider.closest('.trait-category');
             if (container) {
-                domRefs.previewContainers[stateKey] = container.querySelector('.trait-preview-container');
+                const previewContainer = container.querySelector('.trait-preview-container');
+                if (previewContainer) {
+                    domRefs.previewContainers[stateKey] = previewContainer;
+                }
             }
         }
     });
+    
+    // Validate category sub-tabs
+    const categorySubTabs = document.querySelectorAll('.category-sub-tab');
+    if (categorySubTabs.length === 0) {
+        console.warn('No category sub-tabs found with class .category-sub-tab');
+    }
+    domRefs.categorySubTabs = categorySubTabs;
+    
+    // Add initialization summary log
+    const unifiedCount = Object.values(domRefs.unifiedControls).filter(el => el !== null).length + 
+                        Object.values(domRefs.unifiedValueSpans).filter(el => el !== null).length + 
+                        (domRefs.generateBtn !== null ? 1 : 0);
+    
+    const categoryCount = Object.keys(domRefs.sliders).length + 
+                         Object.keys(domRefs.valueSpans).length + 
+                         Object.keys(domRefs.colorInputs).length + 
+                         Object.keys(domRefs.previewContainers).length;
+    
+    console.info(`DOM References Initialized: ${unifiedCount} unified controls, ${categoryCount} per-category elements`);
+    
+    // Check for critical elements
+    const criticalElements = [
+        domRefs.generateBtn,
+        domRefs.unifiedControls.numTraits,
+        domRefs.unifiedControls.complexity,
+        domRefs.unifiedControls.colorSeed,
+        domRefs.unifiedControls.previewContainer,
+        domRefs.unifiedValueSpans.numTraits,
+        domRefs.unifiedValueSpans.complexity
+    ];
+    
+    if (criticalElements.some(el => el === null)) {
+        console.error('Critical DOM elements missing - app may not function correctly');
+    }
 }
 
 // ===== CATEGORY SUB-TABS SYSTEM =====
@@ -1317,7 +1547,7 @@ function initializeCategorySubTabs() {
 
 function switchTraitCategory(newCategory) {
     // Save current category's values from unified controls to configCache
-    if (domRefs.currentCategory && domRefs.unifiedControls.numTraits) {
+    if (domRefs.currentCategory && domRefs.unifiedControls.numTraits && domRefs.unifiedControls.complexity && domRefs.unifiedControls.colorSeed) {
         configCache[domRefs.currentCategory].numTraits = parseInt(domRefs.unifiedControls.numTraits.value);
         configCache[domRefs.currentCategory].complexity = parseInt(domRefs.unifiedControls.complexity.value);
         configCache[domRefs.currentCategory].colorSeed = domRefs.unifiedControls.colorSeed.value;
@@ -1338,7 +1568,7 @@ function switchTraitCategory(newCategory) {
     loadCategoryIntoUnifiedControls(newCategory);
     
     // Save to localStorage
-    localStorage.setItem('activeTraitCategory', newCategory);
+    LocalStorageUtil.setItem('activeTraitCategory', newCategory);
     
     // Dispatch custom event
     window.dispatchEvent(new CustomEvent('category:switched', {
@@ -1347,7 +1577,7 @@ function switchTraitCategory(newCategory) {
 }
 
 function loadCategoryIntoUnifiedControls(category) {
-    if (!domRefs.unifiedControls.numTraits) return;
+    if (!domRefs.unifiedControls.numTraits || !domRefs.unifiedControls.complexity || !domRefs.unifiedControls.colorSeed) return;
     
     // Get values from configCache
     const config = configCache[category];
@@ -1357,17 +1587,21 @@ function loadCategoryIntoUnifiedControls(category) {
     domRefs.unifiedControls.complexity.value = config.complexity;
     domRefs.unifiedControls.colorSeed.value = config.colorSeed || '';
     
-    // Update value spans
-    domRefs.unifiedValueSpans.numTraits.textContent = config.numTraits;
-    domRefs.unifiedValueSpans.complexity.textContent = config.complexity;
+    // Update value spans with null checks
+    if (domRefs.unifiedValueSpans.numTraits) {
+        domRefs.unifiedValueSpans.numTraits.textContent = config.numTraits;
+    }
+    if (domRefs.unifiedValueSpans.complexity) {
+        domRefs.unifiedValueSpans.complexity.textContent = config.complexity;
+    }
     
     // Load preview images for the category
     loadPreviewForCategory(category);
 }
 
 function loadPreviewForCategory(category) {
+    if (!domRefs.unifiedControls || !domRefs.unifiedControls.previewContainer) return;
     const previewContainer = domRefs.unifiedControls.previewContainer;
-    if (!previewContainer) return;
     
     // Clear existing previews
     previewContainer.innerHTML = '';
@@ -1398,7 +1632,9 @@ function initializeSliderListeners() {
     if (domRefs.unifiedControls.numTraits) {
         domRefs.unifiedControls.numTraits.addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
-            domRefs.unifiedValueSpans.numTraits.textContent = value;
+            if (domRefs.unifiedValueSpans.numTraits) {
+                domRefs.unifiedValueSpans.numTraits.textContent = value;
+            }
             configCache[domRefs.currentCategory].numTraits = value;
         });
     }
@@ -1406,7 +1642,9 @@ function initializeSliderListeners() {
     if (domRefs.unifiedControls.complexity) {
         domRefs.unifiedControls.complexity.addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
-            domRefs.unifiedValueSpans.complexity.textContent = value;
+            if (domRefs.unifiedValueSpans.complexity) {
+                domRefs.unifiedValueSpans.complexity.textContent = value;
+            }
             configCache[domRefs.currentCategory].complexity = value;
         });
     }
@@ -1423,23 +1661,31 @@ function initializeSliderListeners() {
     categories.forEach(category => {
         // Number of traits slider
         if (domRefs.sliders[category] && domRefs.sliders[category].numTraits) {
+            const debouncedNumTraitsUpdate = debounce((value) => {
+                configCache[category].numTraits = value;
+            }, 300);
+            
             domRefs.sliders[category].numTraits.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
                 if (domRefs.valueSpans[category] && domRefs.valueSpans[category].numTraits) {
-                    domRefs.valueSpans[category].numTraits.textContent = value;
+                    domRefs.valueSpans[category].numTraits.textContent = value; // Immediate feedback
                 }
-                configCache[category].numTraits = value;
+                debouncedNumTraitsUpdate(value); // Debounced save
             });
         }
         
         // Complexity slider
         if (domRefs.sliders[category] && domRefs.sliders[category].complexity) {
+            const debouncedComplexityUpdate = debounce((value) => {
+                configCache[category].complexity = value;
+            }, 300);
+            
             domRefs.sliders[category].complexity.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
                 if (domRefs.valueSpans[category] && domRefs.valueSpans[category].complexity) {
-                    domRefs.valueSpans[category].complexity.textContent = value;
+                    domRefs.valueSpans[category].complexity.textContent = value; // Immediate feedback
                 }
-                configCache[category].complexity = value;
+                debouncedComplexityUpdate(value); // Debounced save
             });
         }
         
@@ -2106,7 +2352,7 @@ function generateProceduralTrait(category, complexity, colorSeed, index) {
         const canvas = document.createElement('canvas');
         canvas.width = 500;
         canvas.height = 500;
-        const ctx = canvas.getContext('2d');
+        const ctx = validateCanvasContext(canvas);
         
         // Parse color seed with category and index for master seed support
         const baseColor = parseColorSeed(colorSeed, category, index);
@@ -2151,7 +2397,7 @@ async function applyProceduralOverlay(aiBaseDataURL, category, complexity, color
         const canvas = document.createElement('canvas');
         canvas.width = 500;
         canvas.height = 500;
-        const ctx = canvas.getContext('2d');
+        const ctx = validateCanvasContext(canvas);
         
         // Load AI base image
         const baseImage = new Image();
@@ -2168,7 +2414,7 @@ async function applyProceduralOverlay(aiBaseDataURL, category, complexity, color
         const overlayCanvas = document.createElement('canvas');
         overlayCanvas.width = 500;
         overlayCanvas.height = 500;
-        const overlayCtx = overlayCanvas.getContext('2d');
+        const overlayCtx = validateCanvasContext(overlayCanvas);
         
         // Generate procedural overlay
         const baseColor = parseColorSeed(colorSeed, category, index);
@@ -2212,6 +2458,22 @@ async function applyProceduralOverlay(aiBaseDataURL, category, complexity, color
         // Return original AI image if overlay fails
         return aiBaseDataURL;
     }
+}
+
+// ===== CANVAS CONTEXT VALIDATION UTILITY =====
+
+// Canvas context validation utility
+function validateCanvasContext(canvas, contextType = '2d') {
+    if (!canvas) {
+        throw new Error('Canvas element is null or undefined');
+    }
+    
+    const ctx = canvas.getContext(contextType);
+    if (!ctx) {
+        throw new Error(`Failed to get ${contextType} context from canvas. This may indicate browser limitations or WebGL context loss.`);
+    }
+    
+    return ctx;
 }
 
 function generateBackgroundTrait(ctx, complexity, baseColor, seed) {
@@ -2483,6 +2745,79 @@ function generateHatTrait(ctx, complexity, baseColor, seed) {
     }
 }
 
+// ===== VISUAL CONSISTENCY HELPERS =====
+
+function getSeededShapeType(seed, shapeTypes) {
+    const index = Math.floor(seed * shapeTypes.length);
+    return shapeTypes[index];
+}
+
+function getSeededColorVariation(baseColor, seed, variationRange = 30) {
+    const hueShift = (seed - 0.5) * variationRange;
+    const satShift = (seed - 0.5) * 20;
+    const lightShift = (seed - 0.5) * 20;
+    
+    return {
+        h: (baseColor.h + hueShift + 360) % 360,
+        s: Math.max(0, Math.min(100, baseColor.s + satShift)),
+        l: Math.max(10, Math.min(90, baseColor.l + lightShift))
+    };
+}
+
+function drawSeededPattern(ctx, patternType, seed, bounds, color) {
+    const [r, g, b] = hslToRgb(color.h, color.s, color.l);
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    
+    switch (patternType) {
+        case 'dots':
+            const dotCount = Math.floor(seed * 20) + 10;
+            for (let i = 0; i < dotCount; i++) {
+                const x = bounds.x + (seed + i * 0.1) % 1 * bounds.width;
+                const y = bounds.y + (seed + i * 0.2) % 1 * bounds.height;
+                const radius = 2 + (seed + i * 0.3) % 1 * 8;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            break;
+            
+        case 'stripes':
+            const stripeCount = Math.floor(seed * 10) + 5;
+            const stripeWidth = bounds.width / stripeCount;
+            for (let i = 0; i < stripeCount; i += 2) {
+                const x = bounds.x + i * stripeWidth;
+                ctx.fillRect(x, bounds.y, stripeWidth, bounds.height);
+            }
+            break;
+            
+        case 'waves':
+            ctx.beginPath();
+            const amplitude = bounds.height * 0.2;
+            const frequency = seed * 4 + 2;
+            ctx.moveTo(bounds.x, bounds.y + bounds.height / 2);
+            for (let x = 0; x <= bounds.width; x += 5) {
+                const y = bounds.y + bounds.height / 2 + Math.sin((x / bounds.width) * frequency * Math.PI * 2) * amplitude;
+                ctx.lineTo(bounds.x + x, y);
+            }
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.stroke();
+            break;
+            
+        case 'scales':
+            const scaleSize = 15;
+            for (let y = bounds.y; y < bounds.y + bounds.height; y += scaleSize) {
+                for (let x = bounds.x; x < bounds.x + bounds.width; x += scaleSize) {
+                    const offsetX = (y / scaleSize) % 2 === 0 ? 0 : scaleSize / 2;
+                    ctx.beginPath();
+                    ctx.arc(x + offsetX, y, scaleSize / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            break;
+    }
+}
+
 // ===== PREVIEW GENERATION FUNCTIONS =====
 
 async function generatePreviewSamples() {
@@ -2581,16 +2916,59 @@ async function generateAllTraits() {
     aiCoordinator.clearCache();
     
     // Generate traits for each category (mixed mode support)
+    const successfulCategories = [];
+    const failedCategories = [];
+    
     for (const category of categories) {
         const config = configCache[category];
         
-        // Enforce global useAIGeneration toggle - bypass AI modes when disabled
-        if (config.generationMode === 'procedural' || !configCache.globalStyle.useAIGeneration) {
-            // Synchronous procedural generation
-            await generateProceduralTraits(category, config);
-        } else {
-            // Async AI/Hybrid generation (only when global AI generation is enabled)
-            await generateAITraits(category, config);
+        try {
+            // Enforce global useAIGeneration toggle - bypass AI modes when disabled
+            if (config.generationMode === 'procedural' || !configCache.globalStyle.useAIGeneration) {
+                // Synchronous procedural generation
+                await generateProceduralTraits(category, config);
+            } else {
+                // Async AI/Hybrid generation (only when global AI generation is enabled)
+                await generateAITraits(category, config);
+            }
+            successfulCategories.push(category);
+        } catch (error) {
+            console.error(`Failed to generate traits for ${category}:`, error);
+            failedCategories.push(category);
+            
+            // Attempt procedural fallback
+            try {
+                console.log(`Attempting procedural fallback for ${category}`);
+                await generateProceduralTraits(category, config);
+                successfulCategories.push(category);
+                failedCategories.pop(); // Remove from failed list since fallback succeeded
+            } catch (fallbackError) {
+                console.error(`Procedural fallback also failed for ${category}:`, fallbackError);
+                
+                // Emit custom event for category failure
+                window.dispatchEvent(new CustomEvent('categoryGenerationFailed', {
+                    detail: { category, error: error.message }
+                }));
+                
+                // Show user notification
+                if (window.showErrorMessage) {
+                    showErrorMessage(`Failed to generate ${category} traits. Continuing with other categories.`);
+                }
+            }
+        }
+    }
+    
+    // Check if any categories succeeded
+    if (successfulCategories.length === 0) {
+        throw new Error('Failed to generate traits for all categories');
+    }
+    
+    // Show warning if partial success
+    if (failedCategories.length > 0) {
+        const message = `Warning: Failed to generate traits for: ${failedCategories.join(', ')}. Other categories completed successfully.`;
+        console.warn(message);
+        if (window.showErrorMessage) {
+            showErrorMessage(message);
         }
     }
     
@@ -2714,9 +3092,15 @@ function updateGenerationProgress(category, current, total, status) {
 }
 
 function displayTraits(category, traitsArray) {
-    const container = domRefs.previewContainers[category];
+    // Use unified preview container instead of per-category containers
+    const container = domRefs.unifiedControls.previewContainer;
     if (!container) {
-        console.error(`Preview container not found for category: ${category}`);
+        console.error(`Unified preview container not found`);
+        return;
+    }
+    
+    // Only display traits for the currently active category
+    if (category !== domRefs.currentCategory) {
         return;
     }
     
@@ -2878,7 +3262,7 @@ function compositeNFT(traitSelections) {
             const canvas = document.createElement('canvas');
             canvas.width = 500;
             canvas.height = 500;
-            const ctx = canvas.getContext('2d');
+            const ctx = validateCanvasContext(canvas);
             
             // Clear canvas with transparent background
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -3005,7 +3389,7 @@ async function generateNFTCollection(collectionSize, collectionName) {
         
         // Get preview canvas for real-time updates
         const previewCanvas = document.getElementById('previewCanvas');
-        const previewCtx = previewCanvas ? previewCanvas.getContext('2d') : null;
+        const previewCtx = previewCanvas ? validateCanvasContext(previewCanvas) : null;
         
         // Generation loop
         for (let i = 0; i < collectionSize; i++) {
@@ -3212,13 +3596,55 @@ function initializeCollectionGeneration() {
             }
             
             // Get input values
-            const collectionSize = parseInt(collectionSizeInput?.value || '100');
-            const collectionName = collectionNameInput?.value?.trim() || 'NFT Collection';
+            let collectionSize = parseInt(collectionSizeInput?.value || '100');
+            let collectionName = collectionNameInput?.value?.trim() || 'NFT Collection';
+            
+            // Validate collection size is a finite number
+            if (!Number.isFinite(collectionSize) || collectionSize <= 0) {
+                alert('⚠️ Invalid Collection Size\n\nPlease enter a valid number greater than 0.\n\nResetting to default size of 100.');
+                collectionSize = 100;
+                if (collectionSizeInput) {
+                    collectionSizeInput.value = '100';
+                }
+            }
+            
+            // Sanitize collection name
+            collectionName = collectionName
+                .replace(/[<>'"&]/g, '') // Remove HTML special chars
+                .replace(/[\/\\:*?"<>|]/g, '') // Remove invalid filename chars
+                .substring(0, 100); // Limit length
+            
+            if (!collectionName) {
+                collectionName = 'NFT Collection'; // Fallback if sanitization removes everything
+            }
+            
+            // Validate collection size with user warnings
+            if (collectionSize > 1000) {
+                const confirmed = confirm(`⚠️ Large Collection Warning\n\n` +
+                    `You are about to generate ${collectionSize} NFTs.\n\n` +
+                    `This may:\n` +
+                    `• Take a long time to complete\n` +
+                    `• Consume significant memory\n` +
+                    `• Cause browser slowdown or freezing\n\n` +
+                    `Recommended: Generate in batches of 1000 or less.\n\n` +
+                    `Continue anyway?`);
+                if (!confirmed) return;
+            }
+            
+            if (collectionSize > 5000) {
+                const doubleConfirmed = confirm(`⚠️ EXTREME SIZE WARNING\n\n` +
+                    `${collectionSize} NFTs is extremely large and may crash your browser.\n\n` +
+                    `Are you absolutely sure?`);
+                if (!doubleConfirmed) return;
+            }
             
             // Clamp collection size
             const clampedSize = Math.max(1, Math.min(10000, collectionSize));
             if (clampedSize !== collectionSize) {
-                console.warn(`Collection size clamped to ${clampedSize}`);
+                console.warn(`Collection size clamped from ${collectionSize} to ${clampedSize}`);
+                if (window.showToast) {
+                    showToast(`Collection size adjusted to maximum: ${clampedSize}`, 'warning');
+                }
             }
             
             // UI state changes
@@ -3446,8 +3872,8 @@ async function initializeAPIProviders() {
                 // Instantiate provider objects for each stored key
                 switch (providerInfo.name) {
                     case 'gemini':
-                        provider = new GeminiProvider(apiKey);
-                        break;
+                        console.warn('Gemini provider is not yet implemented for image generation. Skipping registration.');
+                        continue;
                     case 'openai':
                         provider = new OpenAIProvider(apiKey);
                         break;
@@ -3632,7 +4058,7 @@ function saveConfiguration() {
             }
         });
         
-        localStorage.setItem('nft_generator_config', JSON.stringify(config));
+        LocalStorageUtil.setItem('nft_generator_config', JSON.stringify(config));
         console.log('Configuration saved successfully');
         
     } catch (error) {
@@ -3642,7 +4068,7 @@ function saveConfiguration() {
 
 function loadConfiguration() {
     try {
-        const saved = localStorage.getItem('nft_generator_config');
+        const saved = LocalStorageUtil.getItem('nft_generator_config');
         if (!saved) return;
         
         const config = JSON.parse(saved);
@@ -3725,7 +4151,7 @@ window.NFTGenerator = {
 function initializeStyleEngine() {
     try {
         // Load saved style configuration if available
-        const savedStyleConfig = localStorage.getItem('nft_generator_style_config');
+        const savedStyleConfig = LocalStorageUtil.getItem('nft_generator_style_config');
         if (savedStyleConfig) {
             const config = JSON.parse(savedStyleConfig);
             styleEngine.importStyleConfig(config);
@@ -3773,7 +4199,7 @@ function initializeStyleEngine() {
 function saveStyleConfiguration() {
     try {
         const config = styleEngine.exportStyleConfig();
-        localStorage.setItem('nft_generator_style_config', JSON.stringify(config));
+        LocalStorageUtil.setItem('nft_generator_style_config', JSON.stringify(config));
         
         // Sync to global configuration
         syncStyleToGlobalConfig();
@@ -3949,6 +4375,26 @@ async function initializeProviderCard(providerName) {
         return;
     }
     
+    // Special handling for Gemini provider - show as not available
+    if (providerName === 'gemini') {
+        const statusIndicator = document.getElementById(`${providerName}Status`);
+        const keyInput = document.getElementById(`${providerName}ApiKey`);
+        const validateBtn = document.getElementById(`${providerName}ValidateBtn`);
+        const removeBtn = document.getElementById(`${providerName}RemoveBtn`);
+        
+        if (statusIndicator) {
+            statusIndicator.textContent = '⚠️ Not Available';
+            statusIndicator.className = 'status-indicator error';
+            statusIndicator.title = 'Image generation not yet implemented';
+        }
+        
+        if (keyInput) keyInput.disabled = true;
+        if (validateBtn) validateBtn.disabled = true;
+        if (removeBtn) removeBtn.disabled = true;
+        
+        return;
+    }
+    
     const keyInput = document.getElementById(`${providerName}ApiKey`);
     const validateBtn = document.getElementById(`${providerName}ValidateBtn`);
     const removeBtn = document.getElementById(`${providerName}RemoveBtn`);
@@ -4002,6 +4448,12 @@ async function validateProviderKey(providerName) {
     
     const apiKey = keyInput.value.trim();
     
+    // Block Gemini provider validation
+    if (providerName === 'gemini') {
+        showErrorMessage('Gemini provider is not yet available for image generation. Please use OpenAI, Stable Diffusion, or Procedural providers.');
+        return;
+    }
+    
     if (!apiKey) {
         showErrorMessage('Please enter an API key');
         return;
@@ -4023,6 +4475,17 @@ async function validateProviderKey(providerName) {
     statusIndicator.className = 'status-indicator validating';
     
     try {
+        // Show security warning on first API key save
+        if (!LocalStorageUtil.getItem('nft_generator_security_warning_shown')) {
+            const userConfirmed = confirm("⚠️ Security Notice\n\nAPI keys will be stored in your browser's localStorage with encryption. However, the encryption key is also stored locally, providing minimal protection.\n\nFor production use, consider server-side key management.\n\nDo you want to continue?");
+            if (!userConfirmed) {
+                statusIndicator.textContent = '❌ Cancelled';
+                statusIndicator.className = 'status-indicator error';
+                return;
+            }
+            LocalStorageUtil.setItem('nft_generator_security_warning_shown', 'true');
+        }
+        
         // Save API key
         await apiKeyStorage.saveAPIKey(providerName, apiKey);
         
@@ -4179,7 +4642,7 @@ function initializeConfigActions() {
     const importBtn = document.getElementById('importConfigBtn');
     
     if (exportBtn) {
-        exportBtn.addEventListener('click', () => {
+        eventListenerRegistry.register(exportBtn, 'click', () => {
             try {
                 apiConfigManager.downloadConfiguration();
                 showSuccessMessage('Configuration exported successfully');
@@ -4191,7 +4654,7 @@ function initializeConfigActions() {
     }
     
     if (importBtn) {
-        importBtn.addEventListener('click', () => {
+        eventListenerRegistry.register(importBtn, 'click', () => {
             try {
                 apiConfigManager.createImportFileInput();
             } catch (error) {
@@ -4204,8 +4667,8 @@ function initializeConfigActions() {
 
 function startQuotaUpdateInterval() {
     // Update quotas every 5 minutes
-    setInterval(async () => {
-        const providers = ['gemini', 'openai', 'stablediffusion', 'procedural'];
+    const quotaUpdateInterval = setInterval(async () => {
+        const providers = ['openai', 'stablediffusion', 'procedural'];
         for (const providerName of providers) {
             // Skip quota updates for procedural provider (unlimited quota)
             if (providerName === 'procedural') continue;
@@ -4216,6 +4679,9 @@ function startQuotaUpdateInterval() {
             }
         }
     }, 5 * 60 * 1000); // 5 minutes
+    
+    // Register interval for cleanup
+    eventListenerRegistry.registerInterval(quotaUpdateInterval);
 }
 
 // ===== STYLE CONFIGURATION UI =====
@@ -4257,7 +4723,7 @@ function initializeStylePresetDropdown() {
         dropdown.value = styleEngine.activePreset;
     }
     
-    dropdown.addEventListener('change', (e) => {
+    eventListenerRegistry.register(dropdown, 'change', (e) => {
         const presetName = e.target.value;
         if (presetName) {
             applyStylePreset(presetName);
@@ -4279,7 +4745,7 @@ function initializeMasterStylePrompt() {
     textarea.value = configCache.globalStyle.masterPrompt || '';
     updateCharCounter(textarea, charCounter);
     
-    textarea.addEventListener('input', (e) => {
+    eventListenerRegistry.register(textarea, 'input', (e) => {
         updateCharCounter(textarea, charCounter);
         updateMasterStylePrompt();
     });
@@ -4296,7 +4762,7 @@ function initializeInheritanceLevel() {
     }
     
     radioButtons.forEach(radio => {
-        radio.addEventListener('change', (e) => {
+        eventListenerRegistry.register(radio, 'change', (e) => {
             if (e.target.checked) {
                 updateInheritanceLevel();
             }
@@ -4311,7 +4777,7 @@ function initializeNegativePrompts() {
     // Load current prompts
     textarea.value = configCache.globalStyle.globalNegativePrompt || '';
     
-    textarea.addEventListener('input', () => {
+    eventListenerRegistry.register(textarea, 'input', () => {
         updateNegativePrompts();
     });
 }
@@ -4335,12 +4801,12 @@ function initializeColorPalette() {
     });
     
     // Attach event listeners
-    lockCheckbox.addEventListener('change', () => {
+    eventListenerRegistry.register(lockCheckbox, 'change', () => {
         toggleColorPaletteLock();
     });
     
     colorPickers.forEach((picker, index) => {
-        picker.addEventListener('change', (e) => {
+        eventListenerRegistry.register(picker, 'change', (e) => {
             updateColorPalette(index, e.target.value);
         });
     });
@@ -4350,7 +4816,7 @@ function initializeStylePreview() {
     const previewBtn = document.getElementById('previewStyleBtn');
     if (!previewBtn) return;
     
-    previewBtn.addEventListener('click', () => {
+    eventListenerRegistry.register(previewBtn, 'click', () => {
         previewStylePrompt('background');
     });
 }
@@ -4597,10 +5063,14 @@ function initializeHybridOpacitySlider() {
     slider.value = currentOpacity;
     valueSpan.textContent = Math.round(currentOpacity);
     
+    const debouncedHybridOpacityUpdate = debounce(() => {
+        updateHybridOpacity();
+    }, 300);
+    
     slider.addEventListener('input', (e) => {
         const value = parseInt(e.target.value);
-        valueSpan.textContent = value;
-        updateHybridOpacity();
+        valueSpan.textContent = value; // Immediate feedback
+        debouncedHybridOpacityUpdate(); // Debounced update
     });
 }
 
@@ -4797,7 +5267,7 @@ function updateCostEstimation() {
     
     // Validate activeProvider against known keys in providerCosts and map to safe default
     if (!activeProvider || !providerCosts.hasOwnProperty(activeProvider)) {
-        activeProvider = 'gemini'; // Safe default
+        activeProvider = 'procedural'; // Safe default - procedural is always available
     }
     
     const activeProviderCost = providerCosts[activeProvider];
@@ -4898,7 +5368,7 @@ function initializeCollapsibleSections() {
     if (!toggleBtn || !content) return;
     
     // Load saved state
-    const isCollapsed = localStorage.getItem('aiConfigCollapsed') === 'true';
+    const isCollapsed = LocalStorageUtil.getItem('aiConfigCollapsed') === 'true';
     if (isCollapsed) {
         content.classList.add('collapsed');
         toggleBtn.setAttribute('aria-expanded', 'false');
@@ -4919,7 +5389,7 @@ function initializeCollapsibleSections() {
         }
         
         // Save state
-        localStorage.setItem('aiConfigCollapsed', !isCurrentlyCollapsed);
+        LocalStorageUtil.setItem('aiConfigCollapsed', !isCurrentlyCollapsed);
     });
 }
 
@@ -5043,13 +5513,65 @@ async function initializeCostOptimizationSystems() {
         
         // Set up batch optimizer request executor
         batchOptimizer.setRequestExecutor(async (request, batchId, index) => {
-            return await aiCoordinator.generateSingleAITrait(
-                request.category,
-                request.complexity,
-                request.colorSeed,
-                request.index
-            );
+            try {
+                return await aiCoordinator.generateSingleAITrait(
+                    request.category,
+                    request.complexity,
+                    request.colorSeed,
+                    request.index
+                );
+            } catch (error) {
+                // Log detailed error information
+                console.error(`Batch request failed for ${request.category}[${request.index}] in batch ${batchId}:`, error);
+                
+                // Check if error is retriable
+                const isRetriable = this.isRetriableError(error);
+                
+                // Emit event for monitoring
+                window.dispatchEvent(new CustomEvent('batchRequestFailed', {
+                    detail: { 
+                        request, 
+                        batchId, 
+                        index, 
+                        error: error.message, 
+                        willRetry: isRetriable 
+                    }
+                }));
+                
+                if (isRetriable) {
+                    // Let batch optimizer's retry logic handle it
+                    throw error;
+                } else {
+                    // Non-retriable error - return procedural fallback immediately
+                    console.log(`Non-retriable error, falling back to procedural generation for ${request.category}[${request.index}]`);
+                    try {
+                        return await generateProceduralTrait(
+                            request.category,
+                            request.complexity,
+                            request.colorSeed,
+                            request.index
+                        );
+                    } catch (fallbackError) {
+                        console.error(`Procedural fallback also failed for ${request.category}[${request.index}]:`, fallbackError);
+                        throw fallbackError;
+                    }
+                }
+            }
         });
+        
+        // Helper function to determine if error is retriable
+        this.isRetriableError = function(error) {
+            const retriableErrors = [
+                'network error',
+                'timeout',
+                'rate limit',
+                'service unavailable',
+                'internal server error'
+            ];
+            
+            const errorMessage = error.message.toLowerCase();
+            return retriableErrors.some(retriableError => errorMessage.includes(retriableError));
+        };
         
         // Initialize UI components
         initializeBudgetControlsUI();
@@ -5201,7 +5723,7 @@ async function updateGlobalBudgetStatus() {
 
 function startBudgetStatusUpdates() {
     // Update budget status every 30 seconds
-    setInterval(async () => {
+    const budgetUpdateInterval = setInterval(async () => {
         const providers = ['gemini', 'openai', 'stablediffusion'];
         for (const provider of providers) {
             await updateBudgetStatus(provider);
@@ -5209,14 +5731,20 @@ function startBudgetStatusUpdates() {
         await updateGlobalBudgetStatus();
     }, 30000);
     
+    // Register interval for cleanup
+    eventListenerRegistry.registerInterval(budgetUpdateInterval);
+    
     // Initial update
-    setTimeout(async () => {
+    const initialBudgetTimeout = setTimeout(async () => {
         const providers = ['gemini', 'openai', 'stablediffusion'];
         for (const provider of providers) {
             await updateBudgetStatus(provider);
         }
         await updateGlobalBudgetStatus();
     }, 1000);
+    
+    // Register timeout for cleanup
+    eventListenerRegistry.registerTimeout(initialBudgetTimeout);
 }
 
 // ===== COST ANALYTICS DASHBOARD UI =====
@@ -5408,7 +5936,7 @@ generateAllTraits = async function(forceGeneration = false) {
         
         // Update stored hashes for regenerated categories
         for (const category of regenerationResult.regenerated) {
-            const newHash = smartRegenerator.generateConfigHash(category);
+            const newHash = await smartRegenerator.generateConfigHash(category);
             await smartRegenerator.updateStoredHash(category, newHash);
         }
         
@@ -5585,7 +6113,7 @@ saveConfiguration = function() {
             } : {}
         };
         
-        localStorage.setItem('nft_generator_cost_optimization', JSON.stringify(costOptimizationConfig));
+        LocalStorageUtil.setItem('nft_generator_cost_optimization', JSON.stringify(costOptimizationConfig));
         
     } catch (error) {
         console.error('Failed to save cost optimization configuration:', error);
@@ -5600,7 +6128,7 @@ loadConfiguration = function() {
         originalLoadConfiguration();
         
         // Load cost optimization settings
-        const saved = localStorage.getItem('nft_generator_cost_optimization');
+        const saved = LocalStorageUtil.getItem('nft_generator_cost_optimization');
         if (saved) {
             const config = JSON.parse(saved);
             
@@ -5700,3 +6228,23 @@ function showBudgetExceededModal(provider, type, limit, spent) {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(setupCostOptimizationEventListeners, 2000);
 });
+
+// ===== CLEANUP DIAGNOSTICS =====
+
+function getEventListenerStats() {
+    return {
+        registeredListeners: eventListenerRegistry.listeners.length,
+        registeredIntervals: eventListenerRegistry.intervals.length,
+        registeredTimeouts: eventListenerRegistry.timeouts.length,
+        listenersByType: eventListenerRegistry.listeners.reduce((acc, { eventType }) => {
+            acc[eventType] = (acc[eventType] || 0) + 1;
+            return acc;
+        }, {})
+    };
+}
+
+// Expose for debugging
+window.getEventListenerStats = getEventListenerStats;
+window.cleanupEventListeners = () => eventListenerRegistry.cleanup();
+
+console.log('Event listener registry initialized. Use window.getEventListenerStats() to view statistics.');
